@@ -1,0 +1,111 @@
+{
+    "name": "The Spot: TTL Cleaner (Drops & Storage)",
+    "nodes": [
+        {
+            "parameters": {
+                "rule": {
+                    "interval": [
+                        {
+                            "field": "minutes",
+                            "minutesInterval": 5
+                        }
+                    ]
+                }
+            },
+            "id": "1",
+            "name": "Schedule Trigger",
+            "type": "n8n-nodes-base.scheduleTrigger",
+            "typeVersion": 1,
+            "position": [
+                250,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "operation": "select",
+                "schema": "public",
+                "table": "drops",
+                "returnAll": true,
+                "whereClause": "expires_at < NOW()"
+            },
+            "id": "2",
+            "name": "Supabase: Get Expired Drops",
+            "type": "n8n-nodes-base.supabase",
+            "typeVersion": 1,
+            "position": [
+                470,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "operation": "delete",
+                "bucketId": "drops",
+                "fileId": "={{$node[\"Supabase: Get Expired Drops\"].json[\"audio_url\"].split('/').pop()}}"
+            },
+            "id": "3",
+            "name": "Supabase Storage: Delete Audio",
+            "type": "n8n-nodes-base.supabaseStorage",
+            "typeVersion": 1,
+            "position": [
+                700,
+                200
+            ]
+        },
+        {
+            "parameters": {
+                "operation": "delete",
+                "schema": "public",
+                "table": "drops",
+                "filters": {
+                    "id": "={{$node[\"Supabase: Get Expired Drops\"].json[\"id\"]}}"
+                }
+            },
+            "id": "4",
+            "name": "Supabase: Delete DB Record",
+            "type": "n8n-nodes-base.supabase",
+            "typeVersion": 1,
+            "position": [
+                700,
+                400
+            ]
+        }
+    ],
+    "connections": {
+        "Schedule Trigger": {
+            "main": [
+                [
+                    {
+                        "node": "Supabase: Get Expired Drops",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Supabase: Get Expired Drops": {
+            "main": [
+                [
+                    {
+                        "node": "Supabase Storage: Delete Audio",
+                        "type": "main",
+                        "index": 0
+                    },
+                    {
+                        "node": "Supabase: Delete DB Record",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {},
+    "staticData": null,
+    "meta": {
+        "templateId": ""
+    },
+    "pinData": {},
+    "active": false
+}
