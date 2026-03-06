@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Mic } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Mic, RefreshCw } from "lucide-react";
 import { AnimatePresence } from "framer-motion";
 import TopBar from "@/components/TopBar";
 import BottomNav from "@/components/BottomNav";
@@ -8,38 +8,66 @@ import VoiceRecorder from "@/components/VoiceRecorder";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
-// Demo drops
-const demoDrops = [
-  {
-    id: "1",
-    username: "luna_mx",
-    avatarEmoji: "🌙",
-    audioUrl: "",
-    createdAt: new Date(Date.now() - 3 * 60000),
-    expiresAt: new Date(Date.now() + 12 * 60000),
-  },
-  {
-    id: "2",
-    username: "carlos.fire",
-    avatarEmoji: "🔥",
-    audioUrl: "",
-    createdAt: new Date(Date.now() - 7 * 60000),
-    expiresAt: new Date(Date.now() + 8 * 60000),
-  },
-  {
-    id: "3",
-    username: "vale_speaks",
-    avatarEmoji: "💜",
-    audioUrl: "",
-    createdAt: new Date(Date.now() - 10 * 60000),
-    expiresAt: new Date(Date.now() + 5 * 60000),
-  },
-];
-
 const FeedPage = () => {
   const [showRecorder, setShowRecorder] = useState(false);
-  const [drops, setDrops] = useState<any[]>(demoDrops);
+  const [drops, setDrops] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [currentSpot, setCurrentSpot] = useState<any>(null);
   const { toast } = useToast();
+
+  const fetchDrops = async () => {
+    try {
+      setLoading(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+
+      // 1. Obtener perfil para dominio
+      const { data: profile } = await (supabase as any).from('profiles').select('university_domain').eq('id', user.id).single();
+      const domain = profile?.university_domain || 'demo.edu';
+
+      // 2. Obtener drops activos (RLS ya debería filtrar por dominio si está configurado, 
+      // pero forzamos el filtro para seguridad extra y visualización)
+      const { data: realDrops, error } = await (supabase as any)
+        .from('drops')
+        .select(`
+          id,
+          audio_url,
+          created_at,
+          expires_at,
+          duration_seconds,
+          profiles:author_id (username, avatar_url)
+        `)
+        .gt('expires_at', new Date().toISOString())
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const formattedDrops = (realDrops || []).map((d: any) => ({
+        id: d.id,
+        username: d.profiles?.username || "Anónimo",
+        avatarEmoji: "🎙️", // Fallback por ahora
+        audioUrl: d.audio_url,
+        createdAt: new Date(d.created_at),
+        expiresAt: new Date(d.expires_at),
+      }));
+
+      setDrops(formattedDrops);
+      setCurrentSpot({ name: `Campus ${domain.toUpperCase()}` });
+    } catch (error: any) {
+      console.error("Error fetching drops:", error);
+      toast({ title: "Error al sincronizar", description: error.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDrops();
+    // Suscripción en tiempo real opcional para después
+  }, []);
 
   const handleRecorded = async (blob: Blob) => {
     try {
@@ -114,6 +142,9 @@ const FeedPage = () => {
 
       toast({ title: "Drop activo 🎙️", description: "Tu voz es ahora parte del presente. Desaparecerá en 15 minutos." });
 
+      // Refrescamos el feed
+      fetchDrops();
+
     } catch (error: any) {
       console.error(error);
       toast({ title: "Error en la transmisión", description: error.message, variant: "destructive" });
@@ -122,15 +153,20 @@ const FeedPage = () => {
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      <TopBar spotName="Campus UNAM 🎓" onlineCount={12} />
+      <TopBar spotName={currentSpot?.name || "Cargando..."} onlineCount={drops.length} />
 
       <div className="mx-auto max-w-md space-y-3 px-4 py-4">
-        {drops.length === 0 ? (
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-20 text-center animate-pulse">
+            <RefreshCw className="mb-4 h-8 w-8 animate-spin text-spot-lime" />
+            <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">Sincronizando canal...</p>
+          </div>
+        ) : drops.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <div className="mb-4 text-5xl">🎤</div>
-            <h2 className="text-lg font-bold text-foreground">No drops yet</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Be the first to share your voice
+            <h2 className="font-bebas text-2xl text-foreground uppercase tracking-wider">Silencio en el campus</h2>
+            <p className="mt-1 font-mono text-xs text-muted-foreground uppercase opacity-60">
+              Sé el primero en romper el hielo
             </p>
           </div>
         ) : (
