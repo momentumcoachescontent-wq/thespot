@@ -1,0 +1,72 @@
+[
+    {
+        "parameters": {
+            "rule": {
+                "interval": [
+                    {
+                        "field": "minutes",
+                        "minutesInterval": 5
+                    }
+                ]
+            }
+        },
+        "id": "1",
+        "name": "Schedule Trigger",
+        "type": "n8n-nodes-base.scheduleTrigger",
+        "typeVersion": 1,
+        "position": [
+            100,
+            300
+        ]
+    },
+    {
+        "parameters": {
+            "url": "YOUR_SUPABASE_URL/rest/v1/drops?expires_at=lt.now()",
+            "authentication": "genericCredentialType",
+            "genericAuthType": "httpHeaderAuth",
+            "options": {}
+        },
+        "id": "2",
+        "name": "HTTP: Get Expired Drops",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4,
+        "position": [
+            320,
+            300
+        ]
+    },
+    {
+        "parameters": {
+            "method": "DELETE",
+            "url": "={{ 'YOUR_SUPABASE_URL/rest/v1/drops?id=eq.' + $json.id }}",
+            "authentication": "genericCredentialType",
+            "genericAuthType": "httpHeaderAuth",
+            "options": {}
+        },
+        "id": "3",
+        "name": "HTTP: Delete DB Record",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4,
+        "position": [
+            560,
+            400
+        ]
+    },
+    {
+        "parameters": {
+            "method": "DELETE",
+            "url": "={{ 'YOUR_SUPABASE_URL/storage/v1/object/drops/' + $node[\"HTTP: Get Expired Drops\"].json.audio_url.split('/').pop() }}",
+            "authentication": "genericCredentialType",
+            "genericAuthType": "httpHeaderAuth",
+            "options": {}
+        },
+        "id": "4",
+        "name": "HTTP: Delete Storage Object",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4,
+        "position": [
+            560,
+            200
+        ]
+    }
+]
