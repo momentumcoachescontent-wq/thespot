@@ -13,19 +13,30 @@ interface DropCardProps {
 
 const DropCard = ({ username, avatarEmoji = "🎤", audioUrl, createdAt, expiresAt }: DropCardProps) => {
   const [isPlaying, setIsPlaying] = useState(false);
+  const [progress, setProgress] = useState(0);
   const audioRef = useRef<HTMLAudioElement>(null);
 
   const togglePlay = () => {
-    if (!audioRef.current) return;
+    if (!audioRef.current || !audioUrl) return;
     if (isPlaying) {
       audioRef.current.pause();
     } else {
-      audioRef.current.play();
+      audioRef.current.play().catch(e => console.error("Auto-play error", e));
     }
     setIsPlaying(!isPlaying);
   };
 
-  const handleEnded = () => setIsPlaying(false);
+  const handleTimeUpdate = () => {
+    if (audioRef.current) {
+      const { currentTime, duration } = audioRef.current;
+      setProgress((currentTime / (duration || 1)) * 100);
+    }
+  };
+
+  const handleEnded = () => {
+    setIsPlaying(false);
+    setProgress(0);
+  };
 
   return (
     <motion.div
@@ -54,18 +65,29 @@ const DropCard = ({ username, avatarEmoji = "🎤", audioUrl, createdAt, expires
           {isPlaying ? <Pause size={18} /> : <Play size={18} className="ml-0.5" />}
         </button>
 
-        {/* Waveform placeholder */}
-        <div className="flex flex-1 items-center gap-[3px]">
-          {Array.from({ length: 24 }).map((_, i) => (
-            <div
-              key={i}
-              className={`w-[3px] rounded-full ${isPlaying ? "bg-primary" : "bg-muted-foreground/30"}`}
-              style={{
-                height: `${8 + Math.random() * 20}px`,
-                transition: "all 0.3s ease",
-              }}
-            />
-          ))}
+        {/* Waveform Progress Visualizer */}
+        <div className="relative flex h-8 flex-1 items-center overflow-hidden rounded-md bg-muted/40 cursor-pointer"
+          onClick={(e) => {
+            if (!audioRef.current || !audioRef.current.duration) return;
+            const rect = e.currentTarget.getBoundingClientRect();
+            const percentage = (e.clientX - rect.left) / rect.width;
+            audioRef.current.currentTime = percentage * audioRef.current.duration;
+            setProgress(percentage * 100);
+          }}>
+          <div
+            className="absolute left-0 top-0 h-full bg-primary/20"
+            style={{ width: `${progress}%`, transition: isPlaying ? 'width 0.1s linear' : 'none' }}
+          />
+          <div className="absolute inset-0 flex items-center gap-[3px] px-2">
+            {Array.from({ length: 30 }).map((_, i) => (
+              <div
+                key={i}
+                className={`w-[3px] rounded-full transition-colors duration-300 ${progress > (i / 30) * 100 ? "bg-primary" : "bg-muted-foreground/30"
+                  }`}
+                style={{ height: `${20 + Math.sin(i) * 10}px` }}
+              />
+            ))}
+          </div>
         </div>
 
         <button className="flex h-8 w-8 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:border-primary hover:text-primary">
@@ -73,7 +95,13 @@ const DropCard = ({ username, avatarEmoji = "🎤", audioUrl, createdAt, expires
         </button>
       </div>
 
-      <audio ref={audioRef} src={audioUrl} onEnded={handleEnded} />
+      <audio
+        ref={audioRef}
+        src={audioUrl}
+        onEnded={handleEnded}
+        onTimeUpdate={handleTimeUpdate}
+        preload="metadata"
+      />
     </motion.div>
   );
 };
