@@ -55,6 +55,21 @@ const FeedPage = () => {
         return;
       }
 
+      // Capturamos coordenadas antes del upload
+      let userLat = 0;
+      let userLng = 0;
+
+      try {
+        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 });
+        });
+        userLat = position.coords.latitude;
+        userLng = position.coords.longitude;
+      } catch (geoError) {
+        console.warn("No geolocation granted/available. Using default(0,0)", geoError);
+        toast({ title: "Sin ubicación GPS", description: "Tu dispositivo no reporta coordenadas. Te asignaremos al Campus general.", variant: "destructive" });
+      }
+
       const fileName = `${user.id}-${Date.now()}.webm`;
       const { error: uploadError } = await supabase.storage
         .from('drops')
@@ -79,7 +94,7 @@ const FeedPage = () => {
         const { data: newSpot, error: spotError } = await (supabase as any).from('spots').insert({
           name: `Campus ${domain.toUpperCase()}`,
           university_domain: domain,
-          location: 'POINT(0 0)',
+          location: `POINT(${userLng} ${userLat})`,
           creator_id: user.id
         }).select('id').single();
         if (spotError) throw spotError;
