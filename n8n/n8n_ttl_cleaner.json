@@ -1,0 +1,119 @@
+{
+    "name": "The Spot: TTL Cleaner (Drops & Storage)",
+    "nodes": [
+        {
+            "parameters": {
+                "rule": {
+                    "interval": [
+                        {
+                            "field": "minutes",
+                            "minutesInterval": 5
+                        }
+                    ]
+                }
+            },
+            "id": "1",
+            "name": "Schedule Trigger",
+            "type": "n8n-nodes-base.scheduleTrigger",
+            "typeVersion": 1,
+            "position": [
+                400,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "operation": "select",
+                "schema": "public",
+                "table": "drops",
+                "returnAll": true,
+                "whereClause": "expires_at < NOW()"
+            },
+            "id": "2",
+            "name": "Get Expired Drops",
+            "type": "n8n-nodes-base.supabase",
+            "typeVersion": 1,
+            "position": [
+                600,
+                300
+            ],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "YOUR_SUPABASE_CRED_ID"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "operation": "delete",
+                "bucketId": "drops",
+                "fileId": "={{$node[\"Get Expired Drops\"].json[\"audio_url\"].split('/').pop()}}"
+            },
+            "id": "3",
+            "name": "Delete Physical Audio",
+            "type": "n8n-nodes-base.supabaseStorage",
+            "typeVersion": 1,
+            "position": [
+                850,
+                200
+            ],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "YOUR_SUPABASE_CRED_ID"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "operation": "delete",
+                "schema": "public",
+                "table": "drops",
+                "filters": {
+                    "id": "={{$node[\"Get Expired Drops\"].json[\"id\"]}}"
+                }
+            },
+            "id": "4",
+            "name": "Delete DB Record",
+            "type": "n8n-nodes-base.supabase",
+            "typeVersion": 1,
+            "position": [
+                850,
+                400
+            ],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "YOUR_SUPABASE_CRED_ID"
+                }
+            }
+        }
+    ],
+    "connections": {
+        "Schedule Trigger": {
+            "main": [
+                [
+                    {
+                        "node": "Get Expired Drops",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get Expired Drops": {
+            "main": [
+                [
+                    {
+                        "node": "Delete Physical Audio",
+                        "type": "main",
+                        "index": 0
+                    },
+                    {
+                        "node": "Delete DB Record",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    }
+}
