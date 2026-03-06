@@ -49,7 +49,7 @@ const VoiceRecorder = ({ maxDuration = 60, onRecorded, onCancel }: VoiceRecorder
 
       for (let i = 0; i < bufferLength; i++) {
         barHeight = dataArray[i] / 2;
-        ctx.fillStyle = `rgb(${barHeight + 100}, 69, 96)`; // Acento coral
+        ctx.fillStyle = "#C8FF00"; // Neon Lime
         ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
         x += barWidth + 1;
       }
@@ -137,7 +137,7 @@ const VoiceRecorder = ({ maxDuration = 60, onRecorded, onCancel }: VoiceRecorder
     >
       <div className="rounded-2xl border border-border bg-card p-5 shadow-card">
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-sm font-bold text-foreground">
+          <h3 className="font-bebas text-lg tracking-[1px] text-foreground uppercase">
             {audioBlob ? "Ready to drop" : isRecording ? "Recording..." : "Record a Drop"}
           </h3>
           <button onClick={onCancel} className="text-muted-foreground hover:text-foreground">
@@ -160,11 +160,11 @@ const VoiceRecorder = ({ maxDuration = 60, onRecorded, onCancel }: VoiceRecorder
               <div className="text-xl font-medium text-emerald-400">Audio capturado ({formatTime(elapsed)})</div>
             )}
 
-            <div className={`text-3xl font-bold tabular-nums text-foreground z-10 drop-shadow-md ${isRecording ? "text-white" : ""}`}>
+            <div className={`font-mono text-3xl font-bold tabular-nums text-foreground z-10 drop-shadow-[0_0_10px_rgba(255,255,255,0.2)] ${isRecording ? "text-spot-lime" : ""}`}>
               {formatTime(elapsed)}
             </div>
           </div>
-          <div className="text-xs text-muted-foreground -mt-2">Límite: {maxDuration}s</div>
+          <div className="font-mono text-[9px] text-muted-foreground -mt-2 uppercase tracking-widest">Limit: {maxDuration}s</div>
 
           {/* Controls */}
           <div className="flex items-center gap-4">
@@ -172,11 +172,11 @@ const VoiceRecorder = ({ maxDuration = 60, onRecorded, onCancel }: VoiceRecorder
               <button
                 onClick={isRecording ? stopRecording : startRecording}
                 className={`flex h-16 w-16 items-center justify-center rounded-full transition-transform hover:scale-105 active:scale-95 ${isRecording
-                    ? "bg-destructive text-destructive-foreground animate-pulse-glow"
-                    : "bg-primary text-primary-foreground shadow-glow"
+                  ? "bg-spot-red text-white animate-pulse"
+                  : "bg-spot-lime text-black shadow-[0_0_20px_rgba(200,255,0,0.5)]"
                   }`}
               >
-                {isRecording ? <Square size={24} /> : <Mic size={28} />}
+                {isRecording ? <Square size={24} fill="currentColor" /> : <Mic size={28} fill="currentColor" />}
               </button>
             ) : (
               <button

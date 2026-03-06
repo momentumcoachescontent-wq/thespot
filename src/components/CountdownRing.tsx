@@ -34,13 +34,13 @@ const CountdownRing = ({ expiresAt, size = 40 }: CountdownRingProps) => {
 
   return (
     <div className="relative flex items-center justify-center" style={{ width: size, height: size }}>
-      <svg width={size} height={size} className="-rotate-90">
+      <svg width={size} height={size} className="-rotate-90 drop-shadow-[0_0_5px_rgba(200,255,0,0.2)]">
         <circle
           cx={size / 2}
           cy={size / 2}
           r={r}
           fill="none"
-          stroke="hsl(var(--muted))"
+          stroke="rgba(255,255,255,0.05)"
           strokeWidth={3}
         />
         <circle
@@ -48,7 +48,7 @@ const CountdownRing = ({ expiresAt, size = 40 }: CountdownRingProps) => {
           cy={size / 2}
           r={r}
           fill="none"
-          stroke={progress > 0.3 ? "hsl(var(--primary))" : "hsl(var(--spot-warn))"}
+          stroke={progress > 0.3 ? "#C8FF00" : "#FF2D55"}
           strokeWidth={3}
           strokeDasharray={circumference}
           strokeDashoffset={offset}
@@ -56,7 +56,7 @@ const CountdownRing = ({ expiresAt, size = 40 }: CountdownRingProps) => {
           className="transition-all duration-1000"
         />
       </svg>
-      <span className="absolute text-[9px] font-bold text-foreground">{timeLeft}</span>
+      <span className="absolute font-mono text-[8px] font-bold text-foreground">{timeLeft}</span>
     </div>
   );
 };

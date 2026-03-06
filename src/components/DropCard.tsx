@@ -42,15 +42,17 @@ const DropCard = ({ username, avatarEmoji = "🎤", audioUrl, createdAt, expires
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="rounded-2xl border border-border bg-card p-4 shadow-card"
+      className="rounded-xl border border-white/10 bg-white/5 p-4 shadow-card backdrop-blur-sm"
     >
       <div className="flex items-center gap-3">
         <div className="flex h-11 w-11 items-center justify-center rounded-full bg-muted text-xl">
           {avatarEmoji}
         </div>
         <div className="flex-1">
-          <p className="text-sm font-bold text-foreground">{username}</p>
-          <p className="text-[11px] text-muted-foreground">
+          <h1 className="font-bebas text-2xl tracking-[2px] text-spot-lime drop-shadow-[0_0_10px_rgba(200,255,0,0.4)]">
+            {username}
+          </h1>
+          <p className="font-mono text-[9px] text-muted-foreground uppercase tracking-tighter">
             {new Date(createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
           </p>
         </div>
@@ -60,9 +62,9 @@ const DropCard = ({ username, avatarEmoji = "🎤", audioUrl, createdAt, expires
       <div className="mt-3 flex items-center gap-3">
         <button
           onClick={togglePlay}
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground transition-transform hover:scale-105 active:scale-95"
+          className="flex h-10 w-10 items-center justify-center rounded-full bg-spot-lime text-black transition-transform hover:scale-105 active:scale-95 shadow-[0_0_15px_rgba(200,255,0,0.3)]"
         >
-          {isPlaying ? <Pause size={18} /> : <Play size={18} className="ml-0.5" />}
+          {isPlaying ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" className="ml-0.5" />}
         </button>
 
         {/* Waveform Progress Visualizer */}
@@ -82,7 +84,7 @@ const DropCard = ({ username, avatarEmoji = "🎤", audioUrl, createdAt, expires
             {Array.from({ length: 30 }).map((_, i) => (
               <div
                 key={i}
-                className={`w-[3px] rounded-full transition-colors duration-300 ${progress > (i / 30) * 100 ? "bg-primary" : "bg-muted-foreground/30"
+                className={`w-[3px] rounded-full transition-colors duration-300 ${progress > (i / 30) * 100 ? "bg-spot-lime" : "bg-white/10"
                   }`}
                 style={{ height: `${20 + Math.sin(i) * 10}px` }}
               />

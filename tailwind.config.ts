@@ -14,7 +14,10 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ["'Plus Jakarta Sans'", "sans-serif"],
+        syne: ["'Syne'", "sans-serif"],
+        bebas: ["'Bebas Neue'", "cursive"],
+        mono: ["'DM Mono'", "monospace"],
+        sans: ["'Syne'", "sans-serif"],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -51,9 +54,12 @@ export default {
           foreground: "hsl(var(--card-foreground))",
         },
         spot: {
-          glow: "hsl(var(--spot-glow))",
-          safe: "hsl(var(--spot-safe))",
-          warn: "hsl(var(--spot-warn))",
+          lime: "#C8FF00",
+          red: "#FF2D55",
+          cyan: "#00F0FF",
+          black: "#080808",
+          grey: "#1A1A1A",
+          muted: "#666666",
         },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
