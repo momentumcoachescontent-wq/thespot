@@ -156,17 +156,17 @@ const LandingPage = () => {
                   <ShieldCheck className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
                   <input
                     type="text"
-                    placeholder="Código de 6 dígitos"
+                    placeholder="Código de 8 dígitos"
                     value={otp}
-                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 8))}
                     required
-                    maxLength={6}
-                    className="w-full text-center tracking-[0.5em] rounded-xl border border-white/10 bg-white/5 py-4 px-5 font-mono text-xl text-foreground placeholder:text-muted-foreground/50 focus:border-spot-lime focus:outline-none transition-all"
+                    maxLength={8}
+                    className="w-full text-center tracking-[0.3em] rounded-xl border border-white/10 bg-white/5 py-4 px-5 font-mono text-lg text-foreground placeholder:text-muted-foreground/50 focus:border-spot-lime focus:outline-none transition-all"
                   />
                 </div>
                 <motion.button
                   whileTap={{ scale: 0.97 }}
-                  disabled={isSubmitting || otp.length !== 6}
+                  disabled={isSubmitting || otp.length !== 8}
                   type="submit"
                   className="flex w-full items-center justify-center gap-2 rounded-xl bg-spot-lime py-4 font-bebas text-xl tracking-wider text-black shadow-[0_0_20px_rgba(200,255,0,0.3)] transition-all hover:brightness-110 disabled:opacity-50"
                 >
