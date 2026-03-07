@@ -186,4 +186,4 @@ const LandingPage = () => {
 };
 
 export default LandingPage;
-// Lovable Sync - Auth Fix v1.0.1 (8-digit OTP UI)
+// Lovable Sync - Auth Fix v1.0.2 (Force Production Deployment)
