@@ -9,6 +9,7 @@ import SpotsPage from "./pages/SpotsPage";
 import MoodPage from "./pages/MoodPage";
 import ProfilePage from "./pages/ProfilePage";
 import NotFound from "./pages/NotFound";
+import AuthGuard from "./components/AuthGuard";
 
 const queryClient = new QueryClient();
 
@@ -20,10 +21,10 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<LandingPage />} />
-          <Route path="/feed" element={<FeedPage />} />
-          <Route path="/spots" element={<SpotsPage />} />
-          <Route path="/mood" element={<MoodPage />} />
-          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/feed" element={<AuthGuard><FeedPage /></AuthGuard>} />
+          <Route path="/spots" element={<AuthGuard><SpotsPage /></AuthGuard>} />
+          <Route path="/mood" element={<AuthGuard><MoodPage /></AuthGuard>} />
+          <Route path="/profile" element={<AuthGuard><ProfilePage /></AuthGuard>} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

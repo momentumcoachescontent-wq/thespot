@@ -1,30 +1,91 @@
 import { useState } from "react";
-import { motion } from "framer-motion";
-import { Mic, ArrowRight } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Mic, ArrowRight, ShieldCheck, Mail } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 const LandingPage = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [email, setEmail] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [step, setStep] = useState<"email" | "otp">("email");
+  const [otp, setOtp] = useState("");
 
-  const handleStart = (e: React.FormEvent) => {
+  const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Supabase auth
-    navigate("/feed");
+    if (!email) return;
+
+    setIsSubmitting(true);
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          shouldCreateUser: true,
+        },
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Código enviado",
+        description: "Revisa tu correo para el código de acceso.",
+      });
+      setStep("otp");
+    } catch (error: any) {
+      console.error("Auth error:", error);
+      toast({
+        title: "Error de acceso",
+        description: error.message || "No pudimos enviar el código.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!otp) return;
+
+    setIsSubmitting(true);
+    try {
+      const { error } = await supabase.auth.verifyOtp({
+        email,
+        token: otp,
+        type: 'email',
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Bienvenido al Spot",
+        description: "Autenticación exitosa.",
+      });
+      navigate("/feed");
+    } catch (error: any) {
+      console.error("Verification error:", error);
+      toast({
+        title: "Código inválido",
+        description: "Revisa el código e intenta de nuevo.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background px-6 relative overflow-hidden">
-      {/* Elementos Decorativos de Fondo (Propuesta de Diseño) */}
       <div className="absolute inset-0 bg-[linear-gradient(rgba(200,255,0,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(200,255,0,0.02)_1px,transparent_1px)] bg-[size:40px_40px] opacity-20 pointer-events-none" />
 
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
-        className="flex max-w-sm flex-col items-center text-center z-10"
+        className="flex max-w-sm flex-col items-center text-center z-10 w-full"
       >
-        {/* Logo */}
         <motion.div
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
@@ -49,28 +110,72 @@ const LandingPage = () => {
         >
           HABLA ANTES DE QUE EL MIEDO TE DETENGA.
         </motion.p>
-        <p className="mt-4 font-mono text-xs text-muted-foreground leading-relaxed uppercase opacity-70">
-          Audios efímeros. Conexiones reales. Sin filtros, solo momentos auténticos en tu campus.
-        </p>
 
-        {/* Sign up */}
-        <form onSubmit={handleStart} className="mt-10 w-full space-y-4">
-          <input
-            type="email"
-            placeholder="tu@universidad.edu"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-xl border border-white/10 bg-white/5 py-4 px-5 font-mono text-xs text-foreground placeholder:text-muted-foreground/50 focus:border-spot-lime focus:outline-none transition-all"
-          />
-          <motion.button
-            whileTap={{ scale: 0.97 }}
-            type="submit"
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-spot-lime py-4 font-bebas text-xl tracking-wider text-black shadow-[0_0_20px_rgba(200,255,0,0.3)] transition-all hover:brightness-110"
-          >
-            ENTRAR AL SPOT
-            <ArrowRight size={20} />
-          </motion.button>
-        </form>
+        <div className="mt-10 w-full min-h-[140px] relative">
+          <AnimatePresence mode="wait">
+            {step === "email" ? (
+              <motion.form
+                key="email-form"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 20 }}
+                onSubmit={handleSendOtp}
+                className="w-full space-y-4"
+              >
+                <div className="relative">
+                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+                  <input
+                    type="email"
+                    placeholder="tu@universidad.edu"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    className="w-full rounded-xl border border-white/10 bg-white/5 py-4 pl-12 pr-5 font-mono text-xs text-foreground placeholder:text-muted-foreground/50 focus:border-spot-lime focus:outline-none transition-all"
+                  />
+                </div>
+                <motion.button
+                  whileTap={{ scale: 0.97 }}
+                  disabled={isSubmitting}
+                  type="submit"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-spot-lime py-4 font-bebas text-xl tracking-wider text-black shadow-[0_0_20px_rgba(200,255,0,0.3)] transition-all hover:brightness-110 disabled:opacity-50"
+                >
+                  {isSubmitting ? "ENVIANDO..." : "ENTRAR AL SPOT"}
+                  {!isSubmitting && <ArrowRight size={20} />}
+                </motion.button>
+              </motion.form>
+            ) : (
+              <motion.form
+                key="otp-form"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 20 }}
+                onSubmit={handleVerifyOtp}
+                className="w-full space-y-4"
+              >
+                <div className="relative">
+                  <ShieldCheck className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+                  <input
+                    type="text"
+                    placeholder="Código de 6 dígitos"
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    required
+                    maxLength={6}
+                    className="w-full text-center tracking-[0.5em] rounded-xl border border-white/10 bg-white/5 py-4 px-5 font-mono text-xl text-foreground placeholder:text-muted-foreground/50 focus:border-spot-lime focus:outline-none transition-all"
+                  />
+                </div>
+                <motion.button
+                  whileTap={{ scale: 0.97 }}
+                  disabled={isSubmitting || otp.length !== 6}
+                  type="submit"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-spot-lime py-4 font-bebas text-xl tracking-wider text-black shadow-[0_0_20px_rgba(200,255,0,0.3)] transition-all hover:brightness-110 disabled:opacity-50"
+                >
+                  {isSubmitting ? "VERIFICANDO..." : "CONFIRMAR"}
+                </motion.button>
+              </motion.form>
+            )}
+          </AnimatePresence>
+        </div>
 
         <p className="mt-8 font-mono text-[9px] uppercase tracking-widest text-muted-foreground">
           Dilo ahora. Desaparece pronto. 🎤
