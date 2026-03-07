@@ -23,7 +23,8 @@ const SosModal = ({ isOpen, onClose, onTriggerAction }: SosModalProps) => {
             timer = setInterval(() => {
                 setCountdown((prev) => prev - 1);
             }, 1000);
-        } else if (countdown === 0) {
+        } else if (isOpen && countdown === 0) {
+            // Solo disparamos si el modal sigue abierto al llegar a cero
             onTriggerAction();
             onClose();
         }

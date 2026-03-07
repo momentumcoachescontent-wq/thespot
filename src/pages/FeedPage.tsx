@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Mic, RefreshCw } from "lucide-react";
 import { AnimatePresence } from "framer-motion";
 import TopBar from "@/components/TopBar";
@@ -18,7 +18,7 @@ const FeedPage = () => {
   const [currentSpot, setCurrentSpot] = useState<any>(null);
   const { toast } = useToast();
 
-  const handleSosTrigger = async () => {
+  const handleSosTrigger = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Debes estar autenticado");
@@ -67,7 +67,7 @@ const FeedPage = () => {
       console.error("SOS Error:", error);
       toast({ title: "Error en SOS", description: error.message, variant: "destructive" });
     }
-  };
+  }, [toast]);
 
   const fetchDrops = async () => {
     try {
@@ -82,8 +82,7 @@ const FeedPage = () => {
       const { data: profile } = await (supabase as any).from('profiles').select('university_domain').eq('id', user.id).single();
       const domain = profile?.university_domain || 'demo.edu';
 
-      // 2. Obtener drops activos (RLS ya debería filtrar por dominio si está configurado, 
-      // pero forzamos el filtro para seguridad extra y visualización)
+      // 2. Obtener drops activos
       const { data: realDrops, error } = await (supabase as any)
         .from('drops')
         .select(`
@@ -102,7 +101,7 @@ const FeedPage = () => {
       const formattedDrops = (realDrops || []).map((d: any) => ({
         id: d.id,
         username: d.profiles?.username || "Anónimo",
-        avatarEmoji: "🎙️", // Fallback por ahora
+        avatarEmoji: "🎙️",
         audioUrl: d.audio_url,
         createdAt: new Date(d.created_at),
         expiresAt: new Date(d.expires_at),
@@ -120,7 +119,6 @@ const FeedPage = () => {
 
   useEffect(() => {
     fetchDrops();
-    // Suscripción en tiempo real opcional para después
   }, []);
 
   const handleRecorded = async (blob: Blob) => {
@@ -130,14 +128,11 @@ const FeedPage = () => {
 
       const { data: { user } } = await supabase.auth.getUser();
 
-      // Si estamos en desarrollo sin Auth configurado (para que el cliente Lovable no explote en demo)
-      // Idealmente, pediremos Auth. Por ahora forzamos un chequeo.
       if (!user) {
         toast({ title: "Entorno Restringido", description: "Solo perfiles universitarios pueden grabar. Simulando subida local.", variant: "destructive" });
         return;
       }
 
-      // Capturamos coordenadas antes del upload
       let userLat = 0;
       let userLng = 0;
 
@@ -163,15 +158,12 @@ const FeedPage = () => {
         .from('drops')
         .getPublicUrl(fileName);
 
-      // Tratamos de encontrar un spot de la universidad
-      // Usamos el cliente con by-pass de RLS tipado (ya que TS no está actualizado)
       const { data: profile } = await (supabase as any).from('profiles').select('university_domain').eq('id', user.id).single();
       const domain = profile?.university_domain || 'demo.edu';
 
       let { data: spots } = await (supabase as any).from('spots').select('id').eq('university_domain', domain).limit(1);
       let spotId = spots?.[0]?.id;
 
-      // Generamos Spot Semilla si no hay 
       if (!spotId) {
         const { data: newSpot, error: spotError } = await (supabase as any).from('spots').insert({
           name: `Campus ${domain.toUpperCase()}`,
@@ -195,8 +187,6 @@ const FeedPage = () => {
       if (dbError) throw dbError;
 
       toast({ title: "Drop activo 🎙️", description: "Tu voz es ahora parte del presente. Desaparecerá en 15 minutos." });
-
-      // Refrescamos el feed
       fetchDrops();
 
     } catch (error: any) {
@@ -237,7 +227,6 @@ const FeedPage = () => {
         )}
       </div>
 
-      {/* FAB */}
       {!showRecorder && (
         <button
           onClick={() => setShowRecorder(true)}
@@ -246,6 +235,16 @@ const FeedPage = () => {
           <Mic size={24} />
         </button>
       )}
+
+      <AnimatePresence>
+        {showRecorder && (
+          <VoiceRecorder
+            maxDuration={60}
+            onRecorded={handleRecorded}
+            onCancel={() => setShowRecorder(false)}
+          />
+        )}
+      </AnimatePresence>
 
       <BottomNav />
 
