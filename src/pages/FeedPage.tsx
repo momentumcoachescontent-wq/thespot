@@ -7,13 +7,67 @@ import DropCard from "@/components/DropCard";
 import VoiceRecorder from "@/components/VoiceRecorder";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import SosButton from "@/components/SosButton";
+import SosModal from "@/components/SosModal";
 
 const FeedPage = () => {
   const [showRecorder, setShowRecorder] = useState(false);
+  const [isSosOpen, setIsSosOpen] = useState(false);
   const [drops, setDrops] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentSpot, setCurrentSpot] = useState<any>(null);
   const { toast } = useToast();
+
+  const handleSosTrigger = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Debes estar autenticado");
+
+      // 1. Obtener ubicación actual
+      let userLat = 0;
+      let userLng = 0;
+      try {
+        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject);
+        });
+        userLat = position.coords.latitude;
+        userLng = position.coords.longitude;
+      } catch (e) {
+        console.warn("Location not available for SOS", e);
+      }
+
+      // 2. Registrar incidente en Supabase
+      const { data: incident, error: incError } = await (supabase as any).from('incidents').insert({
+        user_id: user.id,
+        location: `POINT(${userLng} ${userLat})`,
+        status: 'active'
+      }).select().single();
+
+      if (incError) throw incError;
+
+      // 3. Notificar a n8n (Webhook)
+      fetch("https://n8n.tu-instancia.com/webhook/sos-alert", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          incident_id: incident.id,
+          user_id: user.id,
+          location: { lat: userLat, lng: userLng },
+          timestamp: new Date().toISOString()
+        })
+      }).catch(e => console.error("Error al notificar n8n:", e));
+
+      toast({
+        title: "ALERTA DISPARADA",
+        description: "Tus contactos han sido notificados. Mantente a salvo.",
+        variant: "destructive"
+      });
+
+    } catch (error: any) {
+      console.error("SOS Error:", error);
+      toast({ title: "Error en SOS", description: error.message, variant: "destructive" });
+    }
+  };
 
   const fetchDrops = async () => {
     try {
@@ -193,17 +247,16 @@ const FeedPage = () => {
         </button>
       )}
 
-      <AnimatePresence>
-        {showRecorder && (
-          <VoiceRecorder
-            maxDuration={60}
-            onRecorded={handleRecorded}
-            onCancel={() => setShowRecorder(false)}
-          />
-        )}
-      </AnimatePresence>
-
       <BottomNav />
+
+      {/* SOS UI */}
+      <SosButton onClick={() => setIsSosOpen(true)} />
+
+      <SosModal
+        isOpen={isSosOpen}
+        onClose={() => setIsSosOpen(false)}
+        onTriggerAction={handleSosTrigger}
+      />
     </div>
   );
 };

@@ -129,10 +129,10 @@
                 "options": {
                     "response": {
                         "response": {
-                            "neverError": true\n
-                        }\n
-                    }\n
-                }\n
+                            "neverError": true
+                        }
+                    }
+                }
             },
             "id": "del-storage",
             "name": "Delete File",
