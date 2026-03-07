@@ -186,3 +186,4 @@ const LandingPage = () => {
 };
 
 export default LandingPage;
+// Triggering sync for Lovable 8-digit OTP update
