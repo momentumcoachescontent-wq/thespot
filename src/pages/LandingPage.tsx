@@ -186,4 +186,4 @@ const LandingPage = () => {
 };
 
 export default LandingPage;
-// Triggering sync for Lovable 8-digit OTP update
+// Lovable Sync - Auth Fix v1.0.1 (8-digit OTP UI)
