@@ -1,0 +1,267 @@
+{
+    "name": "The Spot: TTL Cleaner - Ultra Robust v2",
+    "nodes": [
+        {
+            "parameters": {
+                "rule": {
+                    "interval": [
+                        {
+                            "field": "minutes",
+                            "minutesInterval": 5
+                        }
+                    ]
+                }
+            },
+            "id": "schedule-trigger",
+            "name": "Cron: Cada 5 mins",
+            "type": "n8n-nodes-base.scheduleTrigger",
+            "typeVersion": 1,
+            "position": [
+                100,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "method": "GET",
+                "url": "={{ ($env.SUPABASE_URL || 'https://YOUR_PROJECT.supabase.co') + '/rest/v1/drops?select=id,audio_url,expires_at&expires_at=lt.' + encodeURIComponent($now.toISO()) }}",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY || 'YOUR_SUPABASE_SERVICE_ROLE_KEY' }}"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "={{ 'Bearer ' + ($env.SUPABASE_SERVICE_ROLE_KEY || 'YOUR_SUPABASE_SERVICE_ROLE_KEY') }}"
+                        }
+                    ]
+                },
+                "options": {
+                    "timeout": 30000
+                }
+            },
+            "id": "get-expired",
+            "name": "Supabase: Get Expired Drops",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4,
+            "position": [
+                320,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "caseSensitive": true,
+                        "leftValue": "",
+                        "typeValidation": "strict",
+                        "version": 2
+                    },
+                    "conditions": [
+                        {
+                            "id": "has-results",
+                            "leftValue": "={{ Array.isArray($json) ? $json.length : 0 }}",
+                            "rightValue": 0,
+                            "operator": {
+                                "type": "number",
+                                "operation": "larger"
+                            }
+                        }
+                    ],
+                    "combinator": "and"
+                }
+            },
+            "id": "if-results",
+            "name": "¿Hay expirados?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2.2,
+            "position": [
+                540,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "const rows = Array.isArray($json) ? $json : [];\nreturn rows.map(row => ({ json: row }));"
+            },
+            "id": "expand",
+            "name": "Expand Array",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                760,
+                220
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Normalización quirúrgica de la ruta de storage\nfunction extractPath(urlStr) {\n  if (!urlStr) return null;\n  try {\n    // Formato esperado: .../storage/v1/object/public/drops/filename.webm\n    const parts = urlStr.split('/object/public/drops/');\n    return parts.length > 1 ? parts[1] : urlStr.split('/').pop();\n  } catch (e) { return null; }\n}\n\nconst item = $json;\nconst storagePath = extractPath(item.audio_url);\n\nreturn {\n  id: item.id,\n  storagePath: storagePath,\n  hasFile: !!storagePath\n};"
+            },
+            "id": "normalize",
+            "name": "Normalize Path",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                980,
+                220
+            ]
+        },
+        {
+            "parameters": {
+                "method": "DELETE",
+                "url": "={{ ($env.SUPABASE_URL || 'https://YOUR_PROJECT.supabase.co') + '/storage/v1/object/drops/' + $json.storagePath }}",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY || 'YOUR_SUPABASE_SERVICE_ROLE_KEY' }}"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "={{ 'Bearer ' + ($env.SUPABASE_SERVICE_ROLE_KEY || 'YOUR_SUPABASE_SERVICE_ROLE_KEY') }}"
+                        }
+                    ]
+                },
+                "options": {
+                    "response": {
+                        "response": {
+                            "neverError": true\n
+                        }\n
+                    }\n
+                }\n
+            },
+            "id": "del-storage",
+            "name": "Delete File",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4,
+            "position": [
+                1200,
+                140
+            ]
+        },
+        {
+            "parameters": {
+                "method": "DELETE",
+                "url": "={{ ($env.SUPABASE_URL || 'https://YOUR_PROJECT.supabase.co') + '/rest/v1/drops?id=eq.' + $json.id }}",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY || 'YOUR_SUPABASE_SERVICE_ROLE_KEY' }}"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "={{ 'Bearer ' + ($env.SUPABASE_SERVICE_ROLE_KEY || 'YOUR_SUPABASE_SERVICE_ROLE_KEY') }}"
+                        }
+                    ]
+                }
+            },
+            "id": "del-db",
+            "name": "Delete DB Record",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4,
+            "position": [
+                1420,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "return { message: \"Sin drops expirados\", checkedAt: new Date().toISOString() };"
+            },
+            "id": "log-none",
+            "name": "Log: Nada pendiente",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                760,
+                420
+            ]
+        }
+    ],
+    "connections": {
+        "schedule-trigger": {
+            "main": [
+                [
+                    {
+                        "node": "get-expired",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "get-expired": {
+            "main": [
+                [
+                    {
+                        "node": "if-results",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "if-results": {
+            "main": [
+                [
+                    {
+                        "node": "expand",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "log-none",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "expand": {
+            "main": [
+                [
+                    {
+                        "node": "normalize",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "normalize": {
+            "main": [
+                [
+                    {
+                        "node": "del-storage",
+                        "type": "main",
+                        "index": 0
+                    },
+                    {
+                        "node": "del-db",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "del-storage": {
+            "main": [
+                [
+                    {
+                        "node": "del-db",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    }
+}
