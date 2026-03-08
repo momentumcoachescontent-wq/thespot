@@ -9,9 +9,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
 import { useAuth } from "@/contexts/AuthContext";
+import { useFilter } from "@/contexts/FilterContext";
+import UniversitySelector from "@/components/UniversitySelector";
 
 const FeedPage = () => {
   const { user, profile } = useAuth();
+  const { resolvedDomain } = useFilter();
   const [showRecorder, setShowRecorder] = useState(false);
   const [drops, setDrops] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -25,13 +28,25 @@ const FeedPage = () => {
       setLoading(true);
       if (!user) { setLoading(false); return; }
 
-      const domain = profile?.university_domain || "demo.edu";
-
-      const { data: realDrops, error } = await (supabase as any)
+      let query = (supabase as any)
         .from("drops")
-        .select("id, audio_url, created_at, expires_at, duration_seconds, profiles:author_id(username, avatar_url)")
-        .gt("expires_at", new Date().toISOString())
-        .order("created_at", { ascending: false });
+        .select("id, audio_url, created_at, expires_at, duration_seconds, listened_count, profiles:author_id(username, avatar_url)")
+        .gt("expires_at", new Date().toISOString());
+
+      if (resolvedDomain) {
+        // Obtenemos los spots que pertenecen a este dominio
+        const { data: spotIds } = await (supabase as any).from("spots").select("id").eq("university_domain", resolvedDomain);
+        const ids = (spotIds || []).map((s: any) => s.id);
+        if (ids.length > 0) {
+          query = query.in("spot_id", ids);
+        } else {
+          setDrops([]);
+          setLoading(false);
+          return;
+        }
+      }
+
+      const { data: realDrops, error } = await query.order("created_at", { ascending: false });
 
       if (error) throw error;
 
@@ -42,10 +57,14 @@ const FeedPage = () => {
         audioUrl: d.audio_url,
         createdAt: new Date(d.created_at),
         expiresAt: new Date(d.expires_at),
+        durationSeconds: d.duration_seconds,
+        listenedCount: d.listened_count,
       }));
 
       setDrops(formattedDrops);
-      setCurrentSpot({ name: `Campus ${domain.toUpperCase()}` });
+
+      const displayDomain = resolvedDomain || "Todas las sedes";
+      setCurrentSpot({ name: resolvedDomain ? `Campus ${resolvedDomain.toUpperCase()}` : "Global" });
 
       const userMap: Record<string, number> = {};
       (realDrops || []).forEach((d: any) => {
@@ -64,10 +83,10 @@ const FeedPage = () => {
     fetchDrops();
     const channel = (supabase as any)
       .channel("drops-feed")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "drops" }, () => { fetchDrops(); })
+      .on("postgres_changes", { event: "*", schema: "public", table: "drops" }, () => { fetchDrops(); })
       .subscribe();
     return () => { channel.unsubscribe(); };
-  }, [user]); // Re-ejecutar si cambia el usuario
+  }, [user, resolvedDomain]); // Re-ejecutar si cambia el filtro
 
   const handleRecorded = async (blob: Blob) => {
     try {
@@ -160,7 +179,17 @@ const FeedPage = () => {
           </div>
         ) : (
           drops.map((drop) => (
-            <DropCard key={drop.id} id={drop.id} username={drop.username} avatarEmoji={drop.avatarEmoji} audioUrl={drop.audioUrl} createdAt={drop.createdAt} expiresAt={drop.expiresAt} />
+            <DropCard
+              key={drop.id}
+              id={drop.id}
+              username={drop.username}
+              avatarEmoji={drop.avatarEmoji}
+              audioUrl={drop.audioUrl}
+              createdAt={drop.createdAt}
+              expiresAt={drop.expiresAt}
+              durationSeconds={drop.durationSeconds}
+              initialListenedCount={drop.listenedCount}
+            />
           ))
         )}
       </div>

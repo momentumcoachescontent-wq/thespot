@@ -1,18 +1,26 @@
 import { useState, useEffect, useRef } from "react";
 import { Play, Pause } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useFilter } from "@/contexts/FilterContext";
 
 const DropsWidget = () => {
+    const { resolvedDomain } = useFilter();
     const [drops, setDrops] = useState<any[]>([]);
     const [playingId, setPlayingId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const audioRef = useRef<HTMLAudioElement>(null);
 
     useEffect(() => {
-        (supabase as any)
+        let query = (supabase as any)
             .from("drops")
-            .select("id, audio_url, created_at, profiles:author_id(username)")
-            .gt("expires_at", new Date().toISOString())
+            .select("id, audio_url, created_at, profiles:author_id(username), spots!inner(university_domain)")
+            .gt("expires_at", new Date().toISOString());
+
+        if (resolvedDomain) {
+            query = query.eq("spots.university_domain", resolvedDomain);
+        }
+
+        query
             .order("created_at", { ascending: false })
             .limit(5)
             .then(({ data, error }: any) => {
@@ -20,7 +28,7 @@ const DropsWidget = () => {
                 setDrops(data || []);
                 setLoading(false);
             });
-    }, []);
+    }, [resolvedDomain]);
 
     const toggle = (drop: any) => {
         if (playingId === drop.id) {

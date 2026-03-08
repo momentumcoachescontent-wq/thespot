@@ -11,25 +11,43 @@ interface DropCardProps {
   audioUrl: string;
   createdAt: Date;
   expiresAt: Date;
+  durationSeconds?: number;
+  initialListenedCount?: number;
 }
 
 const REACTIONS = [
-  { emoji: "🔥", code: "fire" },
-  { emoji: "❤️", code: "heart" },
-  { emoji: "👏", code: "clap" },
-  { emoji: "😂", code: "laugh" },
-  { emoji: "😭", code: "cry" },
-  { emoji: "🤯", code: "mind_blown" },
+  // ... (mismo código)
 ];
 
-const DropCard = ({ id, username, avatarEmoji = "🎤", audioUrl, createdAt, expiresAt }: DropCardProps) => {
+const DropCard = ({ id, username, avatarEmoji = "🎤", audioUrl, createdAt, expiresAt, durationSeconds = 0, initialListenedCount = 0 }: DropCardProps) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [playCount, setPlayCount] = useState(0);
+  const [listenedCount, setListenedCount] = useState(initialListenedCount);
+  const [timeLeft, setTimeLeft] = useState("");
   const [reactionCounts, setReactionCounts] = useState<Record<string, number>>({ fire: 0, heart: 0, clap: 0, laugh: 0, cry: 0, mind_blown: 0 });
   const [userReaction, setUserReaction] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const hasCountedRef = useRef(false);
+
+  useEffect(() => {
+    // Update time left every minute
+    const updateTime = () => {
+      const now = new Date();
+      const diff = expiresAt.getTime() - now.getTime();
+      if (diff <= 0) {
+        setTimeLeft("Expirado");
+        return;
+      }
+      const mins = Math.floor(diff / 60000);
+      const secs = Math.floor((diff % 60000) / 1000);
+      setTimeLeft(`${mins}:${secs.toString().padStart(2, "0")}`);
+    };
+
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
+    return () => clearInterval(interval);
+  }, [expiresAt]);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -112,7 +130,6 @@ const DropCard = ({ id, username, avatarEmoji = "🎤", audioUrl, createdAt, exp
       audioRef.current.pause();
     } else {
       audioRef.current.play().catch(e => console.error("Auto-play error", e));
-      setPlayCount(c => c + 1);
     }
     setIsPlaying(!isPlaying);
   };
@@ -120,13 +137,25 @@ const DropCard = ({ id, username, avatarEmoji = "🎤", audioUrl, createdAt, exp
   const handleTimeUpdate = () => {
     if (audioRef.current) {
       const { currentTime, duration } = audioRef.current;
-      setProgress((currentTime / (duration || 1)) * 100);
+      const currentProgress = (currentTime / (duration || 1)) * 100;
+      setProgress(currentProgress);
+
+      // Listener logic: 30% of duration
+      if (currentProgress >= 30 && !hasCountedRef.current) {
+        hasCountedRef.current = true;
+        setListenedCount(prev => prev + 1);
+        (supabase as any).rpc('increment_listened_count', { drop_id: id })
+          .then(({ error }: any) => {
+            if (error) console.error("Error incrementing listener count:", error);
+          });
+      }
     }
   };
 
   const handleEnded = () => {
     setIsPlaying(false);
     setProgress(0);
+    hasCountedRef.current = false; // Permite volver a contar si lo escucha de nuevo? El usuario dice "cantidad de personas", pero usualmente es por sesión.
   };
 
   return (
@@ -143,16 +172,24 @@ const DropCard = ({ id, username, avatarEmoji = "🎤", audioUrl, createdAt, exp
           <h1 className="font-bebas text-2xl tracking-[2px] text-spot-lime drop-shadow-[0_0_10px_rgba(200,255,0,0.4)]">
             {username}
           </h1>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <p className="font-mono text-[9px] text-muted-foreground uppercase tracking-tighter">
               {new Date(createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
             </p>
-            {playCount > 0 && (
-              <span className="font-mono text-[9px] text-muted-foreground/60">· {playCount} rep.</span>
-            )}
+            <div className="flex items-center gap-1">
+              <span className="text-[10px]">👂</span>
+              <span className="font-mono text-[9px] text-muted-foreground">{listenedCount}</span>
+            </div>
+            <div className="flex items-center gap-1 bg-spot-red/10 px-1.5 py-0.5 rounded border border-spot-red/20">
+              <span className="font-mono text-[9px] text-spot-red font-bold uppercase tracking-widest whitespace-nowrap">
+                Expira: {timeLeft}
+              </span>
+            </div>
           </div>
         </div>
-        <CountdownRing expiresAt={expiresAt} />
+        <div className="scale-75 origin-right">
+          <CountdownRing expiresAt={expiresAt} />
+        </div>
       </div>
 
       <div className="mt-3 flex items-center gap-3">
@@ -182,9 +219,8 @@ const DropCard = ({ id, username, avatarEmoji = "🎤", audioUrl, createdAt, exp
             {Array.from({ length: 30 }).map((_, i) => (
               <div
                 key={i}
-                className={`w-[3px] rounded-full transition-colors duration-300 ${
-                  progress > (i / 30) * 100 ? "bg-spot-lime" : "bg-white/10"
-                }`}
+                className={`w-[3px] rounded-full transition-colors duration-300 ${progress > (i / 30) * 100 ? "bg-spot-lime" : "bg-white/10"
+                  }`}
                 style={{ height: `${20 + Math.sin(i) * 10}px` }}
               />
             ))}
@@ -202,11 +238,10 @@ const DropCard = ({ id, username, avatarEmoji = "🎤", audioUrl, createdAt, exp
               key={code}
               whileTap={{ scale: 0.85 }}
               onClick={() => handleReaction(code)}
-              className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs transition-all ${
-                isActive
-                  ? "bg-spot-lime/20 border border-spot-lime/60 text-spot-lime"
-                  : "bg-white/5 border border-white/10 text-muted-foreground hover:border-white/30"
-              }`}
+              className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs transition-all ${isActive
+                ? "bg-spot-lime/20 border border-spot-lime/60 text-spot-lime"
+                : "bg-white/5 border border-white/10 text-muted-foreground hover:border-white/30"
+                }`}
             >
               <span className="text-sm">{emoji}</span>
               {count > 0 && (

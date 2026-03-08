@@ -10,6 +10,8 @@ import TopUsersWidget from "@/components/dashboard/TopUsersWidget";
 import EventsWidget from "@/components/dashboard/EventsWidget";
 import PodcastWidget from "@/components/dashboard/PodcastWidget";
 
+import UniversitySelector from "@/components/UniversitySelector";
+
 const DashboardHome = () => {
   const navigate = useNavigate();
 
@@ -17,9 +19,12 @@ const DashboardHome = () => {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-xl">
-        <div className="px-4 py-3 lg:px-6">
-          <h1 className="font-bebas text-2xl tracking-wider text-foreground">DASHBOARD</h1>
-          <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Vista unificada de tu campus</p>
+        <div className="flex items-center justify-between px-4 py-3 lg:px-6">
+          <div>
+            <h1 className="font-bebas text-2xl tracking-wider text-foreground">DASHBOARD</h1>
+            <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Vista unificada de tu campus</p>
+          </div>
+          <UniversitySelector />
         </div>
       </div>
 

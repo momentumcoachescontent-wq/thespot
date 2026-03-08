@@ -1,14 +1,22 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useFilter } from "@/contexts/FilterContext";
 
 const TopUsersWidget = () => {
+    const { resolvedDomain } = useFilter();
     const [users, setUsers] = useState<{ username: string; count: number }[]>([]);
 
     useEffect(() => {
-        (supabase as any)
+        let query = (supabase as any)
             .from("drops")
-            .select("profiles:author_id(username)")
-            .gt("expires_at", new Date().toISOString())
+            .select("profiles:author_id(username), spots!inner(university_domain)")
+            .gt("expires_at", new Date().toISOString());
+
+        if (resolvedDomain) {
+            query = query.eq("spots.university_domain", resolvedDomain);
+        }
+
+        query
             .limit(100)
             .then(({ data, error }: any) => {
                 if (error) {
@@ -19,7 +27,7 @@ const TopUsersWidget = () => {
                 (data || []).forEach((d: any) => { const u = d.profiles?.username || "anónimo"; map[u] = (map[u] || 0) + 1; });
                 setUsers(Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([username, count]) => ({ username, count })));
             });
-    }, []);
+    }, [resolvedDomain]);
 
     const medals = ["🥇", "🥈", "🥉", "4", "5"];
 

@@ -1,24 +1,32 @@
 import { useState, useEffect, useRef } from "react";
 import { Headphones, Play, Pause } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useFilter } from "@/contexts/FilterContext";
 
 const PodcastWidget = () => {
+    const { resolvedDomain } = useFilter();
     const [pods, setPods] = useState<any[]>([]);
     const [playingId, setPlayingId] = useState<string | null>(null);
     const audioRef = useRef<HTMLAudioElement>(null);
 
     useEffect(() => {
-        (supabase as any)
+        let query = (supabase as any)
             .from("podcasts")
-            .select("id, title, audio_url, duration_seconds")
-            .gt("expires_at", new Date().toISOString())
+            .select("id, title, audio_url, duration_seconds, spots!inner(university_domain)")
+            .gt("expires_at", new Date().toISOString());
+
+        if (resolvedDomain) {
+            query = query.eq("spots.university_domain", resolvedDomain);
+        }
+
+        query
             .order("created_at", { ascending: false })
             .limit(2)
             .then(({ data, error }: any) => {
                 if (error) console.error("Error fetching podcasts widget:", error);
                 setPods(data || []);
             });
-    }, []);
+    }, [resolvedDomain]);
 
     if (!pods.length) return (
         <div className="flex flex-col items-center py-4 text-center">
