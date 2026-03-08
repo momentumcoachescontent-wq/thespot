@@ -76,7 +76,9 @@ const DropsWidget = () => {
             if (progress >= 30 && !hasCountedRef.current[playingId]) {
                 hasCountedRef.current[playingId] = true;
                 (supabase as any).rpc('increment_listened_count', { drop_id: playingId })
-                    .catch((err: any) => console.error("Error incrementing widget listener:", err));
+                    .then(({ error }: any) => {
+                        if (error) console.error("Error incrementing widget listener:", error);
+                    });
             }
         }
     };

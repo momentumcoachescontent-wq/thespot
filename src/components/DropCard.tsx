@@ -167,8 +167,8 @@ const DropCard = ({ id, username, avatarEmoji = "🎤", audioUrl, createdAt, exp
         hasCountedRef.current = true;
         // Solo llamamos al RPC. La persistencia se reflejará vía Realtime/Props.
         (supabase as any).rpc('increment_listened_count', { drop_id: id })
-          .catch((error: any) => {
-            console.error("Error incrementing listener count:", error);
+          .then(({ error }: any) => {
+            if (error) console.error("Error incrementing listener count:", error);
           });
       }
     }
