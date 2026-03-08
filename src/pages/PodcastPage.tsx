@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Headphones, Play, Pause, Plus, Lock, Clock, Mic } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import BottomNav from "@/components/BottomNav";
+
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -113,7 +113,7 @@ const PodcastPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div className="min-h-screen bg-background pb-4">
       <div className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-xl">
         <div className="mx-auto flex max-w-md items-center justify-between px-4 py-3">
           <div>
@@ -222,7 +222,7 @@ const PodcastPage = () => {
       </div>
 
       <audio ref={audioRef} onEnded={() => setPlayingId(null)} />
-      <BottomNav />
+      
     </div>
   );
 };
