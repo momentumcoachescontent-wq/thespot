@@ -117,7 +117,7 @@ const LandingPage = () => {
         </motion.div>
 
         <h1 className="font-bebas text-6xl leading-[0.9] tracking-tighter text-foreground mb-2">
-          THE <span className="text-spot-lime drop-shadow-[0_0_10px_rgba(200,255,0,0.4)]">SPOT V2</span>
+          THE <span className="text-spot-lime drop-shadow-[0_0_10px_rgba(200,255,0,0.4)]">SPOT</span>
         </h1>
         <p className="font-mono text-[10px] uppercase tracking-[4px] text-muted-foreground">
           Tu voz. Tu momento. Tu gente.
@@ -160,7 +160,7 @@ const LandingPage = () => {
                   type="submit"
                   className="flex w-full items-center justify-center gap-2 rounded-xl bg-spot-lime py-4 font-bebas text-xl tracking-wider text-black shadow-[0_0_20px_rgba(200,255,0,0.3)] transition-all hover:brightness-110 disabled:opacity-50"
                 >
-                  {isSubmitting ? "ENVIANDO..." : "ENTRAR AL SPOT"}
+                  {isSubmitting ? "ENTRANDO..." : "ENTRAR AL SPOT"}
                   {!isSubmitting && <ArrowRight size={20} />}
                 </motion.button>
               </motion.form>
