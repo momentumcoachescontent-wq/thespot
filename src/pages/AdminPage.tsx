@@ -33,7 +33,8 @@ const AdminPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { isAdmin, loading: authLoading } = useAuth();
-  const [tab, setTab] = useState<"overview" | "drops" | "users" | "incidents">("overview");
+  const [tab, setTab] = useState<"overview" | "drops" | "users" | "incidents" | "settings">("overview");
+  const [settings, setSettings] = useState<any>({ ai_moderation_enabled: false });
   const [stats, setStats] = useState({ users: 0, drops: 0, incidents: 0, podcasts: 0 });
   const [dropsByDay, setDropsByDay] = useState<any[]>([]);
   const [uniRanking, setUniRanking] = useState<any[]>([]);
@@ -138,13 +139,13 @@ const AdminPage = () => {
         </div>
         {/* Tabs */}
         <div className="mx-auto flex max-w-2xl gap-1 overflow-x-auto px-4 pb-2">
-          {(["overview", "drops", "users", "incidents"] as const).map(t => (
+          {(["overview", "drops", "users", "incidents", "settings"] as const).map(t => (
             <button
               key={t}
               onClick={() => setTab(t)}
               className={`shrink-0 rounded-full px-4 py-1.5 font-mono text-[10px] uppercase tracking-widest transition-all ${tab === t ? "bg-spot-lime text-black" : "text-muted-foreground hover:text-foreground"}`}
             >
-              {t === "overview" ? "General" : t === "drops" ? "Drops" : t === "users" ? "Usuarios" : "Incidentes"}
+              {t === "overview" ? "General" : t === "drops" ? "Drops" : t === "users" ? "Usuarios" : t === "incidents" ? "Incidentes" : "Config"}
             </button>
           ))}
         </div>
@@ -271,6 +272,57 @@ const AdminPage = () => {
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {/* Settings tab */}
+            {tab === "settings" && (
+              <div className="space-y-6">
+                <h3 className="font-bebas text-xl text-foreground">Configuración de Sistema</h3>
+
+                <div className="rounded-2xl border border-border bg-card p-6 space-y-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-bebas text-lg text-foreground">Moderación Automática (IA)</h4>
+                      <p className="font-mono text-[10px] text-muted-foreground">Analiza el contenido de los audios antes de publicarlos.</p>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        const newValue = !settings.ai_moderation_enabled;
+                        const { error } = await (supabase as any)
+                          .from('site_settings')
+                          .upsert({ key: 'ai_moderation_enabled', value: newValue });
+
+                        if (!error) {
+                          setSettings({ ...settings, ai_moderation_enabled: newValue });
+                          toast({ title: newValue ? "Moderación activada" : "Moderación desactivada" });
+                        }
+                      }}
+                      className={`relative h-6 w-12 rounded-full transition-colors ${settings.ai_moderation_enabled ? 'bg-spot-lime' : 'bg-muted'}`}
+                    >
+                      <div className={`absolute top-1 h-4 w-4 rounded-full bg-white transition-all ${settings.ai_moderation_enabled ? 'left-7 bg-black' : 'left-1'}`} />
+                    </button>
+                  </div>
+
+                  <div className="h-px bg-border" />
+
+                  <div className="space-y-2 opacity-50 pointer-events-none">
+                    <h4 className="font-bebas text-lg text-foreground">Reglas de Moderación</h4>
+                    <p className="font-mono text-[10px] text-muted-foreground italic">Próximamente: Personaliza los criterios de riesgo.</p>
+                    <textarea
+                      disabled
+                      className="w-full rounded-xl border border-border bg-muted p-3 font-mono text-[10px] h-24"
+                      placeholder="Ej: Bloquear contenido violento o palabras de odio..."
+                    />
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-spot-cyan/20 bg-spot-cyan/5 p-4">
+                  <p className="font-mono text-[10px] text-spot-cyan leading-relaxed">
+                    <TrendingUp size={12} className="inline mr-1 mb-0.5" />
+                    <strong>Nota de Rendimiento:</strong> Al usar WebM (Opus), estamos ahorrando un 70% de ancho de banda en comparación con MP3 estándar.
+                  </p>
+                </div>
               </div>
             )}
           </>
