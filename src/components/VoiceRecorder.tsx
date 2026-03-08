@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Mic, Square, Send, X } from "lucide-react";
+import { Mic, Square, Send, X, Play, Pause, RotateCcw } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface VoiceRecorderProps {
@@ -12,9 +12,12 @@ const VoiceRecorder = ({ maxDuration = 60, onRecorded, onCancel }: VoiceRecorder
   const [isRecording, setIsRecording] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Analizador de Audio para Visualización
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -25,6 +28,7 @@ const VoiceRecorder = ({ maxDuration = 60, onRecorded, onCancel }: VoiceRecorder
   useEffect(() => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
+      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
     };
   }, []);
 
@@ -69,7 +73,7 @@ const VoiceRecorder = ({ maxDuration = 60, onRecorded, onCancel }: VoiceRecorder
       source.connect(analyserRef.current);
       drawWaveform();
 
-      // Setup Recorder: Forzamos Opus si es posible
+      // Setup Recorder
       const options = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
         ? { mimeType: 'audio/webm;codecs=opus' }
         : undefined;
@@ -90,14 +94,12 @@ const VoiceRecorder = ({ maxDuration = 60, onRecorded, onCancel }: VoiceRecorder
         if (audioContextRef.current?.state !== 'closed') {
           audioContextRef.current?.close();
         }
-        if (animationFrameRef.current) {
-          cancelAnimationFrame(animationFrameRef.current);
-        }
       };
 
       mediaRecorder.start();
       setIsRecording(true);
       setElapsed(0);
+      setAudioBlob(null);
       timerRef.current = setInterval(() => {
         setElapsed((prev) => {
           if (prev >= maxDuration - 1) {
@@ -121,6 +123,32 @@ const VoiceRecorder = ({ maxDuration = 60, onRecorded, onCancel }: VoiceRecorder
     setIsRecording(false);
   };
 
+  const handlePlayPreview = () => {
+    if (!audioBlob) return;
+    if (isPlaying) {
+      audioRef.current?.pause();
+      setIsPlaying(false);
+    } else {
+      const url = URL.createObjectURL(audioBlob);
+      if (!audioRef.current) {
+        audioRef.current = new Audio(url);
+        audioRef.current.onended = () => setIsPlaying(false);
+      }
+      audioRef.current.play();
+      setIsPlaying(true);
+    }
+  };
+
+  const handleReset = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    setAudioBlob(null);
+    setIsPlaying(false);
+    setElapsed(0);
+  };
+
   const handleSend = () => {
     if (audioBlob) onRecorded(audioBlob);
   };
@@ -133,58 +161,92 @@ const VoiceRecorder = ({ maxDuration = 60, onRecorded, onCancel }: VoiceRecorder
       initial={{ y: 100, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       exit={{ y: 100, opacity: 0 }}
-      className="fixed inset-x-0 bottom-16 z-50 mx-auto max-w-md px-4"
+      className="fixed inset-x-0 bottom-20 z-50 mx-auto max-w-md px-4"
     >
-      <div className="rounded-2xl border border-border bg-card p-5 shadow-card">
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="font-bebas text-lg tracking-[1px] text-foreground uppercase">
-            {audioBlob ? "Listo para publicar" : isRecording ? "Grabando..." : "Graba un Drop"}
+      <div className="rounded-2xl border border-white/10 bg-zinc-900/95 backdrop-blur-xl p-6 shadow-2xl">
+        <div className="mb-6 flex items-center justify-between">
+          <h3 className="font-bebas text-xl tracking-widest text-white uppercase italic">
+            {audioBlob ? "DROP LISTO" : isRecording ? "TRANSMITIENDO..." : "INICIAR DROP"}
           </h3>
-          <button onClick={onCancel} className="text-muted-foreground hover:text-foreground">
+          <button onClick={onCancel} className="text-zinc-500 hover:text-white transition-colors">
             <X size={20} />
           </button>
         </div>
 
-        <div className="flex flex-col items-center gap-4">
-          {/* Visualizador / Timer */}
-          <div className="relative flex w-full flex-col items-center justify-center h-20">
+        <div className="flex flex-col items-center gap-6">
+          {/* Visual Area */}
+          <div className="relative flex w-full flex-col items-center justify-center h-24 bg-black/40 rounded-xl border border-white/5">
             {!audioBlob ? (
               <canvas
                 ref={canvasRef}
                 width={200}
                 height={60}
                 className="absolute inset-0 mx-auto"
-                style={{ opacity: isRecording ? 1 : 0, transition: "opacity 0.2s" }}
+                style={{ opacity: isRecording ? 1 : 0.3, transition: "opacity 0.2s" }}
               />
             ) : (
-              <div className="font-mono text-sm text-spot-lime">Audio grabado — {formatTime(elapsed)}</div>
+              <div className="absolute top-2 font-mono text-[9px] uppercase tracking-[3px] text-spot-lime animate-pulse">
+                Vista previa disponible
+              </div>
             )}
 
-            <div className={`font-mono text-3xl font-bold tabular-nums text-foreground z-10 drop-shadow-[0_0_10px_rgba(255,255,255,0.2)] ${isRecording ? "text-spot-lime" : ""}`}>
+            <div className={`font-mono text-4xl font-bold tabular-nums tracking-tighter z-10 ${isRecording ? "text-spot-lime drop-shadow-[0_0_15px_rgba(200,255,0,0.5)]" : "text-white"}`}>
               {formatTime(elapsed)}
             </div>
           </div>
-          <div className="font-mono text-[9px] text-muted-foreground -mt-2 uppercase tracking-widest">Límite: {maxDuration}s</div>
 
-          {/* Controls */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center justify-between w-full px-2">
+            <span className="font-mono text-[9px] text-zinc-500 uppercase tracking-widest">Límite: {maxDuration}s</span>
+            {audioBlob && <span className="font-mono text-[9px] text-spot-lime uppercase tracking-widest">Grabado ok</span>}
+          </div>
+
+          {/* New Control Flow */}
+          <div className="flex items-center justify-center gap-6 w-full">
             {!audioBlob ? (
               <button
                 onClick={isRecording ? stopRecording : startRecording}
-                className={`flex h-16 w-16 items-center justify-center rounded-full transition-transform hover:scale-105 active:scale-95 ${isRecording
-                  ? "bg-spot-red text-white animate-pulse"
-                  : "bg-spot-lime text-black shadow-[0_0_20px_rgba(200,255,0,0.5)]"
+                className={`group flex h-20 w-20 items-center justify-center rounded-full transition-all hover:scale-105 active:scale-95 ${isRecording
+                  ? "bg-spot-red text-white shadow-[0_0_30px_rgba(255,50,50,0.4)] animate-pulse"
+                  : "bg-spot-lime text-black shadow-[0_0_30px_rgba(200,255,0,0.4)]"
                   }`}
               >
-                {isRecording ? <Square size={24} fill="currentColor" /> : <Mic size={28} fill="currentColor" />}
+                {isRecording ? <Square size={28} fill="currentColor" /> : <Mic size={32} fill="currentColor" />}
               </button>
             ) : (
-              <button
-                onClick={handleSend}
-                className="flex h-16 w-16 items-center justify-center rounded-full bg-spot-safe text-primary-foreground transition-transform hover:scale-105 active:scale-95"
-              >
-                <Send size={24} />
-              </button>
+              <div className="flex items-center gap-4 w-full justify-between">
+                {/* REGRABAR */}
+                <div className="flex flex-col items-center gap-2 flex-1">
+                  <button
+                    onClick={handleReset}
+                    className="flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-800 text-zinc-400 border border-white/10 transition-all hover:bg-zinc-700 hover:text-white"
+                  >
+                    <RotateCcw size={22} />
+                  </button>
+                  <span className="font-mono text-[8px] uppercase tracking-widest text-zinc-500">Regrabar</span>
+                </div>
+
+                {/* ESCUCHAR */}
+                <div className="flex flex-col items-center gap-2 flex-1">
+                  <button
+                    onClick={handlePlayPreview}
+                    className={`flex h-16 w-16 items-center justify-center rounded-full transition-all hover:scale-105 ${isPlaying ? "bg-white text-black" : "bg-spot-lime text-black shadow-[0_0_20px_rgba(200,255,0,0.3)]"}`}
+                  >
+                    {isPlaying ? <Pause size={24} fill="currentColor" /> : <Play size={24} fill="currentColor" className="ml-1" />}
+                  </button>
+                  <span className="font-mono text-[8px] uppercase tracking-widest text-spot-lime font-bold">Escuchar</span>
+                </div>
+
+                {/* PUBLICAR */}
+                <div className="flex flex-col items-center gap-2 flex-1">
+                  <button
+                    onClick={handleSend}
+                    className="flex h-14 w-14 items-center justify-center rounded-2xl bg-spot-safe text-white shadow-[0_0_20px_rgba(34,197,94,0.3)] transition-all hover:brightness-110 active:scale-95"
+                  >
+                    <Send size={22} />
+                  </button>
+                  <span className="font-mono text-[8px] uppercase tracking-widest text-spot-safe font-bold">Publicar</span>
+                </div>
+              </div>
             )}
           </div>
         </div>
