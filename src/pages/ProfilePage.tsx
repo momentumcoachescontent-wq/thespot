@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
-import { Shield, LogOut, Plus, Trash2, Phone, User, X, Pencil, Check, Lock } from "lucide-react";
-
+import { Shield, LogOut, Plus, Trash2, Phone, User, X, Pencil, Check, Lock, School, AtSign } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface SOSContact {
   id: string;
@@ -18,38 +18,39 @@ const SOS_PIN_KEY = "thespot_sos_pin";
 const ProfilePage = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { profile, updateProfile, signOut: authSignOut } = useAuth();
+
   const [contacts, setContacts] = useState<SOSContact[]>([]);
   const [isAddingMode, setIsAddingMode] = useState(false);
   const [newContact, setNewContact] = useState({ name: "", phone: "", relationship: "" });
-  const [isLoading, setIsLoading] = useState(true);
-  const [userEmail, setUserEmail] = useState<string>("");
-  const [username, setUsername] = useState<string>("");
-  const [isEditingUsername, setIsEditingUsername] = useState(false);
-  const [usernameInput, setUsernameInput] = useState("");
-  const [isSavingUsername, setIsSavingUsername] = useState(false);
+  const [isLoadingContacts, setIsLoadingContacts] = useState(true);
 
-  // SOS PIN
+  // Profile Edit State
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [profileForm, setProfileForm] = useState({
+    full_name: "",
+    username: "",
+    institution_name: "",
+    phone: ""
+  });
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+
+  // SOS PIN State
   const [sosPin, setSosPin] = useState<string>(() => localStorage.getItem(SOS_PIN_KEY) || "1111");
   const [isEditingPin, setIsEditingPin] = useState(false);
   const [pinInput, setPinInput] = useState("");
 
   useEffect(() => {
     fetchContacts();
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user?.email) setUserEmail(user.email);
-      if (user) {
-        (supabase as any).from('profiles').select('username').eq('id', user.id).single().then(({ data }: any) => {
-          if (data?.username) {
-            setUsername(data.username);
-            setUsernameInput(data.username);
-          } else {
-            const fallback = user.email?.split("@")[0] || "usuario";
-            setUsernameInput(fallback);
-          }
-        });
-      }
-    });
-  }, []);
+    if (profile) {
+      setProfileForm({
+        full_name: profile.full_name || "",
+        username: profile.username || "",
+        institution_name: profile.institution_name || "",
+        phone: profile.phone || ""
+      });
+    }
+  }, [profile]);
 
   const fetchContacts = async () => {
     try {
@@ -63,28 +64,31 @@ const ProfilePage = () => {
     } catch (error: any) {
       toast({ title: "Error", description: "No pudimos cargar tus contactos.", variant: "destructive" });
     } finally {
-      setIsLoading(false);
+      setIsLoadingContacts(false);
     }
   };
 
-  const handleSaveUsername = async () => {
-    if (!usernameInput.trim()) return;
-    setIsSavingUsername(true);
+  const handleSaveProfile = async () => {
+    if (!profileForm.username.trim()) {
+      toast({ title: "Error", description: "El alias es obligatorio.", variant: "destructive" });
+      return;
+    }
+
+    setIsSavingProfile(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const { error } = await (supabase as any)
-        .from('profiles')
-        .update({ username: usernameInput.trim().toLowerCase() })
-        .eq('id', user.id);
-      if (error) throw error;
-      setUsername(usernameInput.trim().toLowerCase());
-      setIsEditingUsername(false);
-      toast({ title: "Usuario actualizado", description: `Tu handle es ahora @${usernameInput.trim().toLowerCase()}` });
+      await updateProfile({
+        full_name: profileForm.full_name.trim(),
+        username: profileForm.username.trim().toLowerCase().replace(/\s/g, ""),
+        institution_name: profileForm.institution_name.trim(),
+        phone: profileForm.phone.trim()
+      });
+
+      setIsEditingProfile(false);
+      toast({ title: "Perfil actualizado", description: "Tus cambios se han guardado correctamente." });
     } catch (e: any) {
-      toast({ title: "Error", description: e.message || "No se pudo guardar el usuario.", variant: "destructive" });
+      toast({ title: "Error", description: e.message || "No se pudo actualizar el perfil.", variant: "destructive" });
     } finally {
-      setIsSavingUsername(false);
+      setIsSavingProfile(false);
     }
   };
 
@@ -135,14 +139,14 @@ const ProfilePage = () => {
   };
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
+    await authSignOut();
     navigate("/");
   };
 
-  const displayName = username || (userEmail ? userEmail.split("@")[0] : "Mi Spot");
+  const displayName = profile?.username || profile?.full_name?.split(" ")[0] || "Mi Spot";
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-20">
       <div className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-xl">
         <div className="mx-auto flex max-w-md items-center justify-between px-4 py-3">
           <h1 className="font-bebas text-2xl tracking-wider text-foreground">PERFIL</h1>
@@ -150,98 +154,132 @@ const ProfilePage = () => {
       </div>
 
       <div className="mx-auto max-w-md px-4 py-8">
-        {/* Avatar + Username */}
-        <div className="flex flex-col items-center gap-3">
-          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-spot-lime text-4xl shadow-[0_0_20px_rgba(200,255,0,0.3)]">
-            🎤
+        {/* Profile Card */}
+        <div className="flex flex-col items-center gap-4 text-center">
+          <div className="relative">
+            <div className="flex h-24 w-24 items-center justify-center rounded-3xl bg-spot-lime text-5xl shadow-[0_0_30px_rgba(200,255,0,0.3)]">
+              🎤
+            </div>
+            <button
+              onClick={() => setIsEditingProfile(!isEditingProfile)}
+              className="absolute -right-2 -bottom-2 rounded-full bg-zinc-900 border border-white/10 p-2 text-spot-lime shadow-lg"
+            >
+              {isEditingProfile ? <X size={16} /> : <Pencil size={16} />}
+            </button>
           </div>
-          <div className="flex flex-col items-center gap-1">
-            {isEditingUsername ? (
-              <div className="flex items-center gap-2">
-                <span className="font-mono text-xs text-muted-foreground">@</span>
-                <input
-                  autoFocus
-                  value={usernameInput}
-                  onChange={e => setUsernameInput(e.target.value.replace(/\s/g, "").toLowerCase())}
-                  className="w-36 rounded-lg border border-spot-lime/50 bg-black/40 px-2 py-1 font-bebas text-lg text-foreground focus:outline-none focus:ring-1 focus:ring-spot-lime"
-                  maxLength={20}
-                />
-                <button
-                  onClick={handleSaveUsername}
-                  disabled={isSavingUsername}
-                  className="rounded-full bg-spot-lime p-1.5 text-black"
-                >
-                  <Check size={14} />
-                </button>
-                <button
-                  onClick={() => setIsEditingUsername(false)}
-                  className="rounded-full bg-white/10 p-1.5 text-muted-foreground"
-                >
-                  <X size={14} />
-                </button>
+
+          {!isEditingProfile ? (
+            <div className="space-y-1">
+              <h2 className="font-bebas text-3xl text-white tracking-tight">
+                {profile?.full_name || "Sin Nombre"}
+              </h2>
+              <div className="flex items-center justify-center gap-2">
+                <AtSign size={12} className="text-spot-lime" />
+                <span className="font-mono text-sm text-zinc-400">@{profile?.username || "usuario"}</span>
               </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <h2 className="font-bebas text-2xl text-foreground">@{displayName}</h2>
-                <button
-                  onClick={() => setIsEditingUsername(true)}
-                  className="text-muted-foreground/50 hover:text-spot-lime transition-colors"
-                >
-                  <Pencil size={13} />
-                </button>
+              <div className="flex items-center justify-center gap-2 mt-2">
+                <School size={12} className="text-muted-foreground" />
+                <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                  {profile?.institution_name || "Institución no definida"}
+                </span>
               </div>
-            )}
-            {userEmail && (
-              <p className="font-mono text-[9px] text-muted-foreground/50">{userEmail}</p>
-            )}
-            <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground mt-1">Tu voz tiene poder.</p>
-          </div>
+            </div>
+          ) : (
+            <div className="w-full space-y-4 mt-2">
+              <div className="space-y-3">
+                <div className="relative">
+                  <User size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
+                  <input
+                    placeholder="Nombre Completo"
+                    value={profileForm.full_name}
+                    onChange={e => setProfileForm({ ...profileForm, full_name: e.target.value })}
+                    className="w-full rounded-xl border border-white/5 bg-white/5 py-3 pl-11 pr-4 font-mono text-xs text-white focus:border-spot-lime/50 focus:outline-none"
+                  />
+                </div>
+                <div className="relative">
+                  <AtSign size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
+                  <input
+                    placeholder="Alias"
+                    value={profileForm.username}
+                    onChange={e => setProfileForm({ ...profileForm, username: e.target.value })}
+                    className="w-full rounded-xl border border-white/5 bg-white/5 py-3 pl-11 pr-4 font-mono text-xs text-white focus:border-spot-lime/50 focus:outline-none"
+                  />
+                </div>
+                <div className="relative">
+                  <School size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
+                  <input
+                    placeholder="Institución"
+                    value={profileForm.institution_name}
+                    onChange={e => setProfileForm({ ...profileForm, institution_name: e.target.value })}
+                    className="w-full rounded-xl border border-white/5 bg-white/5 py-3 pl-11 pr-4 font-mono text-xs text-white focus:border-spot-lime/50 focus:outline-none"
+                  />
+                </div>
+                <div className="relative">
+                  <Phone size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
+                  <input
+                    placeholder="Teléfono"
+                    value={profileForm.phone}
+                    onChange={e => setProfileForm({ ...profileForm, phone: e.target.value })}
+                    className="w-full rounded-xl border border-white/5 bg-white/5 py-3 pl-11 pr-4 font-mono text-xs text-white focus:border-spot-lime/50 focus:outline-none"
+                  />
+                </div>
+              </div>
+              <button
+                onClick={handleSaveProfile}
+                disabled={isSavingProfile}
+                className="w-full rounded-xl bg-spot-lime py-3 font-bebas text-lg text-black shadow-lg transition-all hover:brightness-110 disabled:opacity-50"
+              >
+                {isSavingProfile ? "GUARDANDO..." : "GUARDAR CAMBIOS"}
+              </button>
+            </div>
+          )}
         </div>
 
         {/* SOS PIN Section */}
-        <div className="mt-8 rounded-2xl border border-spot-red/20 bg-spot-red/5 p-4">
+        <div className="mt-12 rounded-2xl border border-spot-red/20 bg-spot-red/5 p-5">
           <div className="flex items-center justify-between">
-            <h3 className="flex items-center gap-2 font-bebas text-lg text-foreground">
-              <Lock size={16} className="text-spot-red" />
-              PIN DE CANCELACIÓN SOS
+            <h3 className="flex items-center gap-2 font-bebas text-xl text-foreground">
+              <Lock size={18} className="text-spot-red" />
+              PIN DE SEGURIDAD SOS
             </h3>
             <button
               onClick={() => { setIsEditingPin(!isEditingPin); setPinInput(""); }}
-              className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-spot-lime transition-colors"
+              className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-white"
             >
-              {isEditingPin ? "Cancelar" : "Cambiar"}
+              {isEditingPin ? "CANCELAR" : "EDITAR"}
             </button>
           </div>
-          <p className="mt-1 font-mono text-[10px] text-muted-foreground/60 uppercase tracking-wider">
-            Ingresa este PIN para cancelar una alerta SOS activa
+          <p className="mt-1 font-mono text-[9px] text-muted-foreground uppercase tracking-widest leading-relaxed">
+            Ingresa este PIN para cancelar una alerta SOS activa en tu campus.
           </p>
+
           <AnimatePresence>
             {isEditingPin ? (
               <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
-                className="mt-3 flex items-center gap-2 overflow-hidden"
+                initial={{ opacity: 0, scaleY: 0 }}
+                animate={{ opacity: 1, scaleY: 1 }}
+                exit={{ opacity: 0, scaleY: 0 }}
+                className="mt-4 flex items-center gap-2 origin-top"
               >
                 <input
-                  type="number"
+                  type="text"
                   maxLength={4}
-                  placeholder="Nuevo PIN (4 dígitos)"
+                  placeholder="NUEVO PIN"
                   value={pinInput}
-                  onChange={e => setPinInput(e.target.value.slice(0, 4))}
-                  className="flex-1 rounded-lg border border-spot-red/30 bg-black/40 px-3 py-2 font-mono text-sm text-center tracking-widest focus:outline-none focus:ring-1 focus:ring-spot-red"
+                  onChange={e => setPinInput(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                  className="flex-1 rounded-xl border border-spot-red/30 bg-black/40 px-4 py-3 font-mono text-sm text-center tracking-[1em] focus:outline-none focus:ring-1 focus:ring-spot-red"
                 />
                 <button
                   onClick={handleSavePin}
-                  className="rounded-lg bg-spot-red px-4 py-2 font-bebas text-sm text-white"
+                  className="rounded-xl bg-spot-red px-6 py-3 font-bebas text-sm text-white transition-all hover:brightness-110"
                 >
-                  GUARDAR
+                  SAVE
                 </button>
               </motion.div>
             ) : (
-              <div className="mt-2 flex gap-2">
+              <div className="mt-4 flex gap-3">
                 {["·", "·", "·", "·"].map((dot, i) => (
-                  <div key={i} className="flex h-8 w-8 items-center justify-center rounded-lg border border-spot-red/20 bg-black/20 font-mono text-lg text-spot-red">
+                  <div key={i} className="flex h-10 w-10 items-center justify-center rounded-xl border border-spot-red/30 bg-black/40 font-mono text-2xl text-spot-red">
                     {dot}
                   </div>
                 ))}
@@ -251,101 +289,123 @@ const ProfilePage = () => {
         </div>
 
         {/* SOS Contacts Section */}
-        <div className="mt-6 space-y-4">
+        <div className="mt-8 space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="flex items-center gap-2 font-bebas text-xl text-foreground">
-              <Shield size={18} className="text-spot-lime" />
-              CONTACTOS DE CONFIANZA
+            <h3 className="flex items-center gap-2 font-bebas text-2xl text-foreground">
+              <Shield size={20} className="text-spot-lime" />
+              RED DE SEGURIDAD
             </h3>
             {contacts.length < 3 && !isAddingMode && (
               <button
                 onClick={() => setIsAddingMode(true)}
-                className="rounded-full bg-spot-lime/10 p-2 text-spot-lime hover:bg-spot-lime/20"
+                className="rounded-xl bg-spot-lime/10 p-2 text-spot-lime border border-spot-lime/20 hover:bg-spot-lime/20 transition-colors"
               >
-                <Plus size={18} />
+                <Plus size={20} />
               </button>
             )}
           </div>
 
-          <AnimatePresence>
+          <AnimatePresence mode="wait">
             {isAddingMode && (
               <motion.form
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
                 onSubmit={handleAddContact}
-                className="space-y-3 overflow-hidden rounded-2xl border border-spot-lime/20 bg-spot-lime/5 p-4"
+                className="space-y-4 rounded-2xl border border-spot-lime/20 bg-spot-lime/5 p-5 shadow-xl"
               >
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={14} />
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={12} />
                     <input
                       placeholder="Nombre"
-                      className="w-full rounded-lg bg-black/40 py-2 pl-9 pr-3 text-xs focus:outline-none focus:ring-1 focus:ring-spot-lime"
+                      className="w-full rounded-xl bg-black/40 py-3 pl-9 pr-3 font-mono text-[10px] focus:outline-none focus:ring-1 focus:ring-spot-lime"
                       value={newContact.name}
                       onChange={e => setNewContact({ ...newContact, name: e.target.value })}
                       required
                     />
                   </div>
-                  <div className="relative flex-1">
-                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={14} />
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={12} />
                     <input
-                      placeholder="WhatsApp"
-                      className="w-full rounded-lg bg-black/40 py-2 pl-9 pr-3 text-xs focus:outline-none focus:ring-1 focus:ring-spot-lime"
+                      placeholder="Teléfono"
+                      className="w-full rounded-xl bg-black/40 py-3 pl-9 pr-3 font-mono text-[10px] focus:outline-none focus:ring-1 focus:ring-spot-lime"
                       value={newContact.phone}
                       onChange={e => setNewContact({ ...newContact, phone: e.target.value })}
                       required
                     />
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
                   <input
-                    placeholder="Relación (ej. Madre)"
-                    className="flex-1 rounded-lg bg-black/40 py-2 px-3 text-xs focus:outline-none focus:ring-1 focus:ring-spot-lime"
+                    placeholder="Parentesco"
+                    className="flex-1 rounded-xl bg-black/40 py-3 px-4 font-mono text-[10px] focus:outline-none focus:ring-1 focus:ring-spot-lime"
                     value={newContact.relationship}
                     onChange={e => setNewContact({ ...newContact, relationship: e.target.value })}
                   />
-                  <button type="submit" className="rounded-lg bg-spot-lime px-4 py-2 text-xs font-bold text-black">GUARDAR</button>
-                  <button type="button" onClick={() => setIsAddingMode(false)} className="rounded-lg bg-white/5 p-2"><X size={14} /></button>
+                  <button type="submit" className="rounded-xl bg-spot-lime px-6 py-3 text-xs font-bebas tracking-widest text-black shadow-lg">AÑADIR</button>
+                  <button type="button" onClick={() => setIsAddingMode(false)} className="rounded-xl bg-white/5 border border-white/10 p-3"><X size={14} /></button>
                 </div>
               </motion.form>
             )}
           </AnimatePresence>
 
-          <div className="space-y-2">
-            {contacts.length === 0 && !isLoading && !isAddingMode && (
-              <p className="py-4 text-center font-mono text-[10px] text-muted-foreground">No tienes contactos de emergencia configurados.</p>
+          <div className="space-y-3">
+            {contacts.length === 0 && !isLoadingContacts && !isAddingMode && (
+              <div className="py-10 text-center border border-white/5 bg-white/5 rounded-2xl">
+                <p className="font-mono text-[10px] text-muted-foreground uppercase tracking-[3px]">Sin contactos configurados</p>
+              </div>
             )}
             {contacts.map((contact) => (
-              <div key={contact.id} className="flex items-center justify-between rounded-xl border border-white/5 bg-white/5 p-4">
+              <motion.div
+                layout
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                key={contact.id}
+                className="flex items-center justify-between rounded-2xl border border-white/10 bg-zinc-900/50 p-5 shadow-sm group hover:border-white/20 transition-all"
+              >
                 <div>
-                  <h4 className="font-bebas text-lg leading-none text-foreground">{contact.name}</h4>
-                  <p className="font-mono text-[10px] text-muted-foreground">{contact.relationship} • {contact.phone}</p>
+                  <h4 className="font-bebas text-xl leading-none text-white tracking-wide">{contact.name}</h4>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="font-mono text-[9px] uppercase tracking-widest text-spot-lime">{contact.relationship}</span>
+                    <span className="text-zinc-600 font-mono text-[9px]">|</span>
+                    <span className="font-mono text-[9px] text-zinc-400">{contact.phone}</span>
+                  </div>
                 </div>
                 <button
                   onClick={() => deleteContact(contact.id)}
-                  className="text-muted-foreground hover:text-destructive"
+                  className="rounded-xl p-2.5 text-zinc-600 hover:text-spot-red hover:bg-spot-red/10 transition-all"
                 >
-                  <Trash2 size={16} />
+                  <Trash2 size={18} />
                 </button>
-              </div>
+              </motion.div>
             ))}
           </div>
         </div>
 
-        {/* Actions */}
-        <div className="mt-10 space-y-2">
+        {/* User Account Info (Read-only) */}
+        <div className="mt-12 space-y-3 border-t border-white/5 pt-8">
+          <div className="flex items-center justify-between px-2">
+            <span className="font-mono text-[9px] uppercase tracking-[3px] text-muted-foreground">CUENTA DE ACCESO</span>
+            <span className="font-mono text-[9px] text-zinc-600 uppercase">{profile?.role === 'admin' ? 'ADMINISTRADOR' : 'ESTUDIANTE'}</span>
+          </div>
+          <div className="rounded-2xl border border-white/5 bg-black/20 p-5 flex items-center justify-between">
+            <span className="font-mono text-[11px] text-zinc-300">{profile?.university_domain || "spot.edu"}</span>
+            <Shield size={14} className="text-zinc-700" title="Email Académico Protegido" />
+          </div>
+        </div>
+
+        {/* Logout Action */}
+        <div className="mt-8">
           <button
             onClick={handleSignOut}
-            className="flex w-full items-center justify-center gap-2 rounded-xl border border-destructive/20 bg-destructive/5 py-4 font-bebas text-lg text-destructive transition-colors hover:bg-destructive/10"
+            className="flex w-full items-center justify-center gap-3 rounded-2xl border border-spot-red/20 bg-spot-red/5 py-5 font-bebas text-xl text-spot-red tracking-[2px] transition-all hover:bg-spot-red/10 group shadow-lg"
           >
-            <LogOut size={18} />
+            <LogOut size={22} className="group-hover:translate-x-1 transition-transform" />
             CERRAR SESIÓN
           </button>
         </div>
       </div>
-
-
     </div>
   );
 };

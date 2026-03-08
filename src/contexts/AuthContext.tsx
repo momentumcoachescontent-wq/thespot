@@ -25,6 +25,7 @@ interface AuthContextType {
     loading: boolean;
     signOut: () => Promise<void>;
     completeOnboarding: (data: { full_name: string; username: string; institution_name: string; phone: string }) => Promise<void>;
+    updateProfile: (data: Partial<{ full_name: string; username: string; institution_name: string; phone: string }>) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -105,14 +106,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             await fetchProfile(user.id);
         } catch (err) {
             console.error("Error completing onboarding:", err);
-            throw err; // Re-throw to allow caller to handle
+            throw err;
+        }
+    };
+
+    const updateProfile = async (updates: Partial<{ full_name: string; username: string; institution_name: string; phone: string }>) => {
+        if (!user) return;
+        try {
+            const { error } = await (supabase as any)
+                .from("profiles")
+                .update(updates)
+                .eq("id", user.id);
+
+            if (error) throw error;
+            await fetchProfile(user.id);
+        } catch (err) {
+            console.error("Error updating profile:", err);
+            throw err;
         }
     };
 
     const isAdmin = profile?.role === 'admin';
 
     return (
-        <AuthContext.Provider value={{ session, user, profile, isAdmin, loading, signOut, completeOnboarding }}
+        <AuthContext.Provider value={{ session, user, profile, isAdmin, loading, signOut, completeOnboarding, updateProfile }}
         >
             {children}
         </AuthContext.Provider>
