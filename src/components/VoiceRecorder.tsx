@@ -175,9 +175,9 @@ const VoiceRecorder = ({ maxDuration = 60, onRecorded, onCancel }: VoiceRecorder
 
         <div className="flex flex-col items-center gap-6">
           {/* Visual Area */}
-          <div className="relative flex w-full flex-col items-center justify-center h-28 bg-black/60 rounded-xl border border-white/5 overflow-hidden">
+          <div className="relative flex w-full flex-col items-center justify-center h-36 bg-black/60 rounded-xl border border-white/5 overflow-hidden">
             {/* Timer Overlay (Top) */}
-            <div className={`absolute top-2 font-mono text-3xl font-extrabold tabular-nums tracking-tighter z-20 transition-colors drop-shadow-[0_0_10px_rgba(0,0,0,0.8)] ${isRecording ? "text-spot-lime" : "text-white"}`}>
+            <div className={`absolute top-4 font-mono text-3xl font-extrabold tabular-nums tracking-tighter z-20 transition-colors drop-shadow-[0_0_10px_rgba(0,0,0,0.8)] ${isRecording ? "text-spot-lime" : "text-white"}`}>
               {formatTime(elapsed)}
             </div>
 
@@ -186,11 +186,11 @@ const VoiceRecorder = ({ maxDuration = 60, onRecorded, onCancel }: VoiceRecorder
                 ref={canvasRef}
                 width={240}
                 height={80}
-                className="mt-6"
+                className="mt-12"
                 style={{ opacity: isRecording ? 1 : 0.4, transition: "opacity 0.2s" }}
               />
             ) : (
-              <div className="font-mono text-[9px] uppercase tracking-[3px] text-spot-lime animate-pulse mt-8">
+              <div className="font-mono text-[9px] uppercase tracking-[3px] text-spot-lime animate-pulse mt-12">
                 Audio listo para pre-escucha
               </div>
             )}
