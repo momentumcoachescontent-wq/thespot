@@ -69,6 +69,7 @@ serve(async (req) => {
                 .from('drops')
                 .update({
                     is_flagged: false,
+                    moderation_status: 'safe',
                     moderation_notes: `Aprobado automáticamente por ${modelProvider.toUpperCase()} (Auto-Piloto)`
                 })
                 .eq('id', drop_id)

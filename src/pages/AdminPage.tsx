@@ -476,7 +476,7 @@ const AdminPage = () => {
                             <div className="flex items-center gap-2">
                               <button
                                 onClick={async () => {
-                                  const { error } = await (supabase as any).from('drops').update({ is_flagged: false }).eq('id', drop.id);
+                                  const { error } = await (supabase as any).from('drops').update({ is_flagged: false, moderation_status: 'safe' }).eq('id', drop.id);
                                   if (!error) {
                                     setFlaggedDrops(prev => prev.filter(d => d.id !== drop.id));
                                     toast({ title: "Drop aprobado ✅" });

@@ -125,12 +125,20 @@ const FeedPage = () => {
       if (uploadError) throw uploadError;
 
       const { data: { publicUrl } } = supabase.storage.from("drops").getPublicUrl(fileName);
-      const domain = profile?.university_domain || "demo.edu";
+
+      // FIX: Prefer resolvedDomain (active filter) over profile domain during recording
+      const domain = resolvedDomain || profile?.university_domain || "demo.edu";
+      console.log(`Recording drop for domain: ${domain}`);
 
       let { data: spots } = await (supabase as any).from("spots").select("id").eq("university_domain", domain).limit(1);
       let spotId = spots?.[0]?.id;
       if (!spotId) {
-        const { data: newSpot, error: spotError } = await (supabase as any).from("spots").insert({ name: `Campus ${domain.toUpperCase()}`, university_domain: domain, location: `POINT(${userLng} ${userLat})`, creator_id: user.id }).select("id").single();
+        const { data: newSpot, error: spotError } = await (supabase as any).from("spots").insert({
+          name: `Campus ${domain.toUpperCase()}`,
+          university_domain: domain,
+          location: `POINT(${userLng} ${userLat})`,
+          creator_id: user.id
+        }).select("id").single();
         if (spotError) throw spotError;
         spotId = newSpot.id;
       }
