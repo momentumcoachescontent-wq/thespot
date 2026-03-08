@@ -138,7 +138,7 @@ const VoiceRecorder = ({ maxDuration = 60, onRecorded, onCancel }: VoiceRecorder
       <div className="rounded-2xl border border-border bg-card p-5 shadow-card">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="font-bebas text-lg tracking-[1px] text-foreground uppercase">
-            {audioBlob ? "Ready to drop" : isRecording ? "Recording..." : "Record a Drop"}
+            {audioBlob ? "Listo para publicar" : isRecording ? "Grabando..." : "Graba un Drop"}
           </h3>
           <button onClick={onCancel} className="text-muted-foreground hover:text-foreground">
             <X size={20} />
@@ -157,14 +157,14 @@ const VoiceRecorder = ({ maxDuration = 60, onRecorded, onCancel }: VoiceRecorder
                 style={{ opacity: isRecording ? 1 : 0, transition: "opacity 0.2s" }}
               />
             ) : (
-              <div className="text-xl font-medium text-emerald-400">Audio capturado ({formatTime(elapsed)})</div>
+              <div className="font-mono text-sm text-spot-lime">Audio grabado — {formatTime(elapsed)}</div>
             )}
 
             <div className={`font-mono text-3xl font-bold tabular-nums text-foreground z-10 drop-shadow-[0_0_10px_rgba(255,255,255,0.2)] ${isRecording ? "text-spot-lime" : ""}`}>
               {formatTime(elapsed)}
             </div>
           </div>
-          <div className="font-mono text-[9px] text-muted-foreground -mt-2 uppercase tracking-widest">Limit: {maxDuration}s</div>
+          <div className="font-mono text-[9px] text-muted-foreground -mt-2 uppercase tracking-widest">Límite: {maxDuration}s</div>
 
           {/* Controls */}
           <div className="flex items-center gap-4">

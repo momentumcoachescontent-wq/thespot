@@ -209,11 +209,20 @@ const FeedPage = () => {
           </div>
         ) : drops.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
-            <div className="mb-4 text-5xl">🎤</div>
-            <h2 className="font-bebas text-2xl text-foreground uppercase tracking-wider">Silencio en el campus</h2>
-            <p className="mt-1 font-mono text-xs text-muted-foreground uppercase opacity-60">
+            <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-3xl bg-spot-lime/10 text-5xl">
+              🎤
+            </div>
+            <h2 className="font-bebas text-3xl text-foreground uppercase tracking-wider">Silencio en el campus</h2>
+            <p className="mt-2 font-mono text-xs text-muted-foreground uppercase tracking-widest opacity-60">
               Sé el primero en romper el hielo
             </p>
+            <button
+              onClick={() => setShowRecorder(true)}
+              className="mt-8 flex items-center gap-2 rounded-xl bg-spot-lime px-6 py-3 font-bebas text-lg tracking-wider text-black shadow-[0_0_20px_rgba(200,255,0,0.3)] transition-all hover:brightness-110"
+            >
+              <Mic size={20} />
+              GRABA EL PRIMER DROP
+            </button>
           </div>
         ) : (
           drops.map((drop) => (
@@ -232,9 +241,10 @@ const FeedPage = () => {
       {!showRecorder && (
         <button
           onClick={() => setShowRecorder(true)}
-          className="fixed bottom-20 right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-glow transition-transform hover:scale-110 active:scale-95"
+          className="fixed bottom-24 right-4 z-50 flex h-16 w-16 items-center justify-center rounded-full bg-spot-lime text-black shadow-[0_0_25px_rgba(200,255,0,0.5)] transition-transform hover:scale-110 active:scale-95"
+          aria-label="Grabar drop"
         >
-          <Mic size={24} />
+          <Mic size={28} fill="currentColor" />
         </button>
       )}
 
