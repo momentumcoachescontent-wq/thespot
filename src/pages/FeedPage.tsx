@@ -83,9 +83,16 @@ const FeedPage = () => {
   useEffect(() => {
     fetchDrops();
     const channel = (supabase as any)
-      .channel("drops-feed")
-      .on("postgres_changes", { event: "*", schema: "public", table: "drops" }, () => { fetchDrops(true); })
-      .on("postgres_changes", { event: "*", schema: "public", table: "reactions" }, () => { fetchDrops(true); })
+      .channel("drops-feed-global")
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "drops" }, () => {
+        fetchDrops(true);
+      })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "drops" }, () => {
+        fetchDrops(true);
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "reactions" }, () => {
+        fetchDrops(true);
+      })
       .subscribe();
     return () => { channel.unsubscribe(); };
   }, [user, resolvedDomain]); // Re-ejecutar si cambia el filtro

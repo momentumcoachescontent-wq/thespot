@@ -110,39 +110,57 @@ const DropCard = ({ id, username, avatarEmoji = "🎤", audioUrl, createdAt, exp
   const handleReaction = async (code: string) => {
     if (!userId) return;
 
-    const isRemoving = userReaction === code;
+    const currentReaction = userReaction;
+    const isRemoving = currentReaction === code;
 
     // Optimistic update
-    setReactionCounts((prev) => ({
-      ...prev,
-      [code]: isRemoving ? Math.max(0, prev[code] - 1) : prev[code] + 1,
-      ...(userReaction && userReaction !== code
-        ? { [userReaction]: Math.max(0, prev[userReaction] - 1) }
-        : {}),
-    }));
+    setReactionCounts((prev) => {
+      const newCounts = { ...prev };
+
+      // If we were reacting to something else, decrement that
+      if (currentReaction && currentReaction !== code) {
+        newCounts[currentReaction] = Math.max(0, newCounts[currentReaction] - 1);
+      }
+
+      // Toggle or switch logic
+      if (isRemoving) {
+        newCounts[code] = Math.max(0, newCounts[code] - 1);
+      } else {
+        newCounts[code] = newCounts[code] + 1;
+      }
+
+      return newCounts;
+    });
+
     setUserReaction(isRemoving ? null : code);
 
     try {
-      // Remove previous reaction
-      if (userReaction) {
-        await (supabase as any)
-          .from('reactions')
-          .delete()
-          .eq('drop_id', id)
-          .eq('user_id', userId);
-      }
-      // Insert new reaction if not removing
+      // 1. Always clear previous reaction for this user and drop
+      const { error: deleteError } = await (supabase as any)
+        .from('reactions')
+        .delete()
+        .eq('drop_id', id)
+        .eq('user_id', userId);
+
+      if (deleteError) throw deleteError;
+
+      // 2. If not removing, insert the new one
       if (!isRemoving) {
-        await (supabase as any).from('reactions').insert({
-          drop_id: id,
-          user_id: userId,
-          type: 'emoji',
-          emoji_code: code,
-        });
+        const { error: insertError } = await (supabase as any)
+          .from('reactions')
+          .insert({
+            drop_id: id,
+            user_id: userId,
+            type: 'emoji',
+            emoji_code: code,
+          });
+
+        if (insertError) throw insertError;
       }
-    } catch (e) {
+    } catch (e: any) {
       console.warn("Reaction error:", e);
-      loadReactions(); // Revert optimistic update on error
+      // Fallback: reload state from DB to be safe if DB unique constraint failed or other error
+      loadReactions();
     }
   };
 
@@ -165,6 +183,8 @@ const DropCard = ({ id, username, avatarEmoji = "🎤", audioUrl, createdAt, exp
       // Listener logic: 30% of duration
       if (currentProgress >= 30 && !hasCountedRef.current) {
         hasCountedRef.current = true;
+        // Increment locally for immediate feedback
+        setListenedCount(prev => prev + 1);
         // Solo llamamos al RPC. La persistencia se reflejará vía Realtime/Props.
         (supabase as any).rpc('increment_listened_count', { drop_id: id })
           .then(({ error }: any) => {
