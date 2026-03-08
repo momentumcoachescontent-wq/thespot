@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Play, Pause } from "lucide-react";
+import { Play, Pause, Trash2 } from "lucide-react";
 import { motion } from "framer-motion";
 import CountdownRing from "./CountdownRing";
 import { supabase } from "@/integrations/supabase/client";
@@ -32,6 +32,7 @@ const DropCard = ({ id, username, avatarEmoji = "🎤", audioUrl, createdAt, exp
   const [reactionCounts, setReactionCounts] = useState<Record<string, number>>({ fire: 0, heart: 0, clap: 0, laugh: 0, cry: 0, mind_blown: 0 });
   const [userReaction, setUserReaction] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [isAdminUser, setIsAdminUser] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
   const hasCountedRef = useRef(false);
 
@@ -61,7 +62,14 @@ const DropCard = ({ id, username, avatarEmoji = "🎤", audioUrl, createdAt, exp
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) setUserId(user.id);
+      if (user) {
+        setUserId(user.id);
+        // Verificar si es admin
+        supabase.from('profiles').select('role').eq('id', user.id).single()
+          .then(({ data }) => {
+            if (data?.role === 'admin') setIsAdminUser(true);
+          });
+      }
     });
     loadReactions();
 
@@ -235,8 +243,23 @@ const DropCard = ({ id, username, avatarEmoji = "🎤", audioUrl, createdAt, exp
             </div>
           </div>
         </div>
-        <div className="scale-75 origin-right">
+        <div className="flex flex-col items-end gap-2 scale-75 origin-right">
           <CountdownRing expiresAt={expiresAt} />
+          {isAdminUser && (
+            <button
+              onClick={async (e) => {
+                e.stopPropagation();
+                if (window.confirm("¿Seguro que deseas borrar este drop como Arquitecto?")) {
+                  const { error } = await supabase.from('drops').delete().eq('id', id);
+                  if (!error) window.location.reload();
+                }
+              }}
+              className="p-2 rounded-full bg-spot-red/10 text-spot-red hover:bg-spot-red/20 transition-colors border border-spot-red/20"
+              title="Borrar Drop (Arquitecto)"
+            >
+              <Trash2 size={16} />
+            </button>
+          )}
         </div>
       </div>
 

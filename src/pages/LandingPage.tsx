@@ -263,4 +263,4 @@ const LandingPage = () => {
 };
 
 export default LandingPage;
-// Production Release v1.0.2 - 8-digit OTP Fix Active
+// Production Release v1.5.0 - Autonomous Moderation & Architect Portal Active

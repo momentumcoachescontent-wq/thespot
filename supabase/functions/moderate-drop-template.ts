@@ -28,31 +28,67 @@ serve(async (req) => {
 
         if (fetchError || !drop) throw new Error('Drop no encontrado')
 
-        // 2. Lógica de Moderación "Smart" (Token Saving)
-        // En un flujo real, aquí llamarías a OpenAI (Whisper + GPT) o Gemini.
-        // Para ahorrar tokens, puedes implementar un check local primero o usar bitrates bajos.
+        // 2. Obtener configuración de Auto-Piloto
+        const { data: autoModSetting } = await supabaseAdmin
+            .from('site_settings')
+            .select('value')
+            .eq('key', 'auto_moderation_mode')
+            .single()
 
-        console.log(`Analizando drop ${drop_id} de usuario ${drop.author_id}...`)
+        const isAutoPilot = autoModSetting?.value === true
 
-        // SIMULACIÓN DE RESULTADO DE IA:
-        // Aquí iría el fetch a la API de IA.
-        const isSafe = true; // Simulación de éxito
+        // 3. Lógica de Moderación "Smart" (Simulada)
+        console.log(`Analizando drop ${drop_id}... Auto-Piloto: ${isAutoPilot}`)
 
-        if (isSafe) {
-            // Liberar el drop
+        const isSafe = true // Simulación de veredicto IA
+
+        if (isSafe && isAutoPilot) {
+            // LIBERACIÓN AUTOMÁTICA
             await supabaseAdmin
                 .from('drops')
-                .update({ is_flagged: false, moderation_notes: 'Aprobado automáticamente por AI' })
+                .update({ is_flagged: false, moderation_notes: 'Aprobado automáticamente por AI (Auto-Piloto)' })
                 .eq('id', drop_id)
 
-            return new Response(JSON.stringify({ success: true, action: 'approved' }), {
+            // Registrar log
+            await supabaseAdmin.from('moderation_logs').insert({
+                drop_id,
+                user_id: drop.author_id,
+                action: 'AUTO_APPROVED',
+                reason: 'Auto-Piloto: Contenido seguro'
+            })
+
+            return new Response(JSON.stringify({ success: true, action: 'auto-approved' }), {
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            })
+        } else if (isSafe) {
+            // MANTENER PARA REVISIÓN MANUAL
+            await supabaseAdmin
+                .from('drops')
+                .update({ moderation_notes: 'IA sugiere APROBAR (Esperando revisión del Arquitecto)' })
+                .eq('id', drop_id)
+
+            return new Response(JSON.stringify({ success: true, action: 'pending-review' }), {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             })
         } else {
-            // Mantener flagged o borrar
+            // BLOQUEADO - INCREMENTAR FALTAS
+            console.log(`Bloqueando drop ${drop_id} de usuario ${drop.author_id}. Incrementando faltas.`)
+
+            // 1. Incrementar contador en perfil (vía RPC)
+            await supabaseAdmin.rpc('increment_flag_count', { row_id: drop.author_id })
+
+            // 2. Registrar en log de moderación
+            await supabaseAdmin.from('moderation_logs').insert({
+                drop_id,
+                user_id: drop.author_id,
+                action: 'AUTO_BLOCKED',
+                reason: 'Contenido detectado como inseguro por IA'
+            })
+
+            // 3. Marcar como bloqueado en drops
             await supabaseAdmin
                 .from('drops')
-                .update({ moderation_notes: 'Bloqueado: Contenido de alto riesgo detectado' })
+                .update({ moderation_notes: 'Bloqueado por IA: Riesgo detectado. Falta registrada al usuario.' })
                 .eq('id', drop_id)
 
             return new Response(JSON.stringify({ success: true, action: 'blocked' }), {

@@ -34,7 +34,10 @@ const AdminPage = () => {
   const { toast } = useToast();
   const { isAdmin, loading: authLoading } = useAuth();
   const [tab, setTab] = useState<"overview" | "drops" | "users" | "incidents" | "settings">("overview");
-  const [settings, setSettings] = useState<any>({ ai_moderation_enabled: false });
+  const [settings, setSettings] = useState<any>({
+    ai_moderation_enabled: false,
+    auto_moderation_mode: false
+  });
   const [stats, setStats] = useState({ users: 0, drops: 0, incidents: 0, podcasts: 0 });
   const [dropsByDay, setDropsByDay] = useState<any[]>([]);
   const [uniRanking, setUniRanking] = useState<any[]>([]);
@@ -53,11 +56,12 @@ const AdminPage = () => {
   const loadDashboard = async () => {
     try {
       // Parallel data loading
-      const [profilesRes, dropsRes, incidentsRes, moodRes] = await Promise.allSettled([
-        (supabase as any).from("profiles").select("id", { count: "exact", head: true }),
-        (supabase as any).from("drops").select("id, created_at, profiles:author_id(username, university_domain)", { count: "exact" }).order("created_at", { ascending: false }).limit(200),
+      const [profilesRes, dropsRes, incidentsRes, moodRes, settingsRes] = await Promise.allSettled([
+        (supabase as any).from("profiles").select("id, flag_count", { count: "exact", head: true }),
+        (supabase as any).from("drops").select("id, created_at, profiles:author_id(username, university_domain, flag_count)", { count: "exact" }).order("created_at", { ascending: false }).limit(200),
         (supabase as any).from("sos_incidents").select("*").order("created_at", { ascending: false }).limit(50),
         (supabase as any).from("mood_checkins").select("mood").limit(500),
+        (supabase as any).from("site_settings").select("*")
       ]);
 
       const userCount = profilesRes.status === "fulfilled" ? (profilesRes.value.count || 0) : 0;
@@ -65,6 +69,13 @@ const AdminPage = () => {
       const dropCount = dropsRes.status === "fulfilled" ? (dropsRes.value.count || 0) : 0;
       const incidentsData = incidentsRes.status === "fulfilled" ? (incidentsRes.value.data || []) : [];
       const moodData = moodRes.status === "fulfilled" ? (moodRes.value.data || []) : [];
+      const settingsData = settingsRes.status === "fulfilled" ? (settingsRes.value.data || []) : [];
+
+      const loadedSettings = { ...settings };
+      settingsData.forEach((s: any) => {
+        loadedSettings[s.key] = s.value;
+      });
+      setSettings(loadedSettings);
 
       setStats({ users: userCount, drops: dropCount, incidents: incidentsData.length, podcasts: 0 });
       setIncidents(incidentsData.slice(0, 10));
@@ -91,12 +102,18 @@ const AdminPage = () => {
       setUniRanking(Object.entries(uniCounts).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([uni, drops]) => ({ uni, drops })));
 
       // Top users
-      const userCounts: Record<string, number> = {};
+      const userStats: Record<string, { drops: number, flags: number }> = {};
       dropsData.forEach((d: any) => {
         const u = d.profiles?.username || "anónimo";
-        userCounts[u] = (userCounts[u] || 0) + 1;
+        if (!userStats[u]) userStats[u] = { drops: 0, flags: d.profiles?.flag_count || 0 };
+        userStats[u].drops++;
       });
-      setTopUsers(Object.entries(userCounts).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([user, drops], i) => ({ user, drops, rank: i + 1 })));
+      setTopUsers(Object.entries(userStats).sort((a, b) => b[1].drops - a[1].drops).slice(0, 10).map(([user, data], i) => ({
+        user,
+        drops: data.drops,
+        flags: data.flags,
+        rank: i + 1
+      })));
 
       // Mood distribution
       const moodCounts: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
@@ -245,7 +262,14 @@ const AdminPage = () => {
                     </span>
                     <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-lg">🎤</div>
                     <div className="flex-1">
-                      <p className="font-bebas text-base leading-none text-foreground">@{u.user}</p>
+                      <p className="font-bebas text-base leading-none text-foreground flex items-center gap-2">
+                        @{u.user}
+                        {u.flags > 0 && (
+                          <span className="bg-spot-red/10 text-spot-red px-1.5 py-0.5 rounded text-[8px] font-mono leading-none border border-spot-red/20">
+                            ⚠️ {u.flags}
+                          </span>
+                        )}
+                      </p>
                       <p className="font-mono text-[10px] text-muted-foreground">{u.drops} drops</p>
                     </div>
                     {u.rank === 1 && <Trophy size={16} className="text-amber-400" />}
@@ -311,6 +335,29 @@ const AdminPage = () => {
                       className={`relative h-6 w-12 rounded-full transition-colors ${settings.ai_moderation_enabled ? 'bg-spot-lime' : 'bg-muted'}`}
                     >
                       <div className={`absolute top-1 h-4 w-4 rounded-full bg-white transition-all ${settings.ai_moderation_enabled ? 'left-7 bg-black' : 'left-1'}`} />
+                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-between rounded-xl border border-border bg-muted/30 p-4">
+                    <div className="space-y-1">
+                      <h4 className="font-bebas text-lg text-foreground">Modo Auto-Piloto</h4>
+                      <p className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">La IA decide el destino del Drop sin intervención del Arquitecto.</p>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        const newValue = !settings.auto_moderation_mode;
+                        const { error } = await (supabase as any)
+                          .from('site_settings')
+                          .upsert({ key: 'auto_moderation_mode', value: newValue });
+
+                        if (!error) {
+                          setSettings({ ...settings, auto_moderation_mode: newValue });
+                          toast({ title: newValue ? "Auto-Piloto Activado" : "Auto-Piloto Desactivado" });
+                        }
+                      }}
+                      className={`relative h-6 w-12 rounded-full transition-colors ${settings.auto_moderation_mode ? 'bg-spot-lime' : 'bg-muted'}`}
+                    >
+                      <div className={`absolute top-1 h-4 w-4 rounded-full bg-white transition-all ${settings.auto_moderation_mode ? 'left-7 bg-black' : 'left-1'}`} />
                     </button>
                   </div>
 
