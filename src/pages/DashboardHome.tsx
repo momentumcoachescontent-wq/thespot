@@ -24,7 +24,10 @@ const DashboardHome = () => {
             <h1 className="font-bebas text-2xl tracking-wider text-foreground">DASHBOARD</h1>
             <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Vista unificada de tu campus</p>
           </div>
-          <UniversitySelector />
+          <div className="flex flex-col items-end gap-1">
+            <span className="font-mono text-[8px] uppercase tracking-widest text-muted-foreground/50 mr-1">Filtro de Campus</span>
+            <UniversitySelector />
+          </div>
         </div>
       </div>
 
