@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Shield, LogOut, Plus, Trash2, Phone, User, X, Pencil, Check, Lock } from "lucide-react";
-import BottomNav from "@/components/BottomNav";
+
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
@@ -142,7 +142,7 @@ const ProfilePage = () => {
   const displayName = username || (userEmail ? userEmail.split("@")[0] : "Mi Spot");
 
   return (
-    <div className="min-h-screen bg-background pb-20">
+    <div className="min-h-screen bg-background">
       <div className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-xl">
         <div className="mx-auto flex max-w-md items-center justify-between px-4 py-3">
           <h1 className="font-bebas text-2xl tracking-wider text-foreground">PERFIL</h1>
@@ -345,7 +345,7 @@ const ProfilePage = () => {
         </div>
       </div>
 
-      <BottomNav />
+
     </div>
   );
 };

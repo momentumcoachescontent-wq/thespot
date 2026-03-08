@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { MapPin, Users, Navigation, UserPlus, ExternalLink } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import BottomNav from "@/components/BottomNav";
+
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -91,7 +91,7 @@ const MapPage = () => {
   const radarSpots = spots.slice(0, 6);
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div className="min-h-screen bg-background pb-4">
       <div className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-xl">
         <div className="mx-auto flex max-w-md items-center justify-between px-4 py-3">
           <div>
@@ -228,7 +228,7 @@ const MapPage = () => {
         </div>
       </div>
 
-      <BottomNav />
+      
     </div>
   );
 };

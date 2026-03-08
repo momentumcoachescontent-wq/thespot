@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { CalendarDays, Plus, MapPin, Users, Clock, X, Check } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import BottomNav from "@/components/BottomNav";
+
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -86,7 +86,7 @@ const EventsPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div className="min-h-screen bg-background pb-4">
       <div className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-xl">
         <div className="mx-auto flex max-w-md items-center justify-between px-4 py-3">
           <div>
@@ -208,7 +208,7 @@ const EventsPage = () => {
         )}
       </div>
 
-      <BottomNav />
+      
     </div>
   );
 };
