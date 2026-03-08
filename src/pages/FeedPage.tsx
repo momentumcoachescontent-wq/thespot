@@ -30,7 +30,7 @@ const FeedPage = () => {
 
       let query = (supabase as any)
         .from("drops")
-        .select("id, audio_url, created_at, expires_at, duration_seconds, listened_count, profiles:author_id(username, avatar_url), reactions(count)")
+        .select("id, audio_url, created_at, expires_at, duration_seconds, listened_count, profiles:author_id(username), reactions(count)")
         .gt("expires_at", new Date().toISOString())
         .eq("is_flagged", false);
 
