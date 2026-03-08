@@ -37,29 +37,31 @@ const FeedPage = () => {
       }
 
       // 2. Registrar incidente en Supabase
-      const { data: incident, error: incError } = await (supabase as any).from('incidents').insert({
+      const { data: incident, error: incError } = await (supabase as any).from('sos_incidents').insert({
         user_id: user.id,
-        location: `POINT(${userLng} ${userLat})`,
+        location_lat: userLat,
+        location_lng: userLng,
         status: 'active'
       }).select().single();
 
       if (incError) throw incError;
 
-      // 3. Notificar a n8n (Webhook)
-      fetch("https://n8n.tu-instancia.com/webhook/sos-alert", {
+      // 3. Notificar a n8n (Webhook real de SOS)
+      fetch("https://n8n.tu-instancia.com/webhook/thespot-sos-alert", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           incident_id: incident.id,
           user_id: user.id,
+          user_email: user.email,
           location: { lat: userLat, lng: userLng },
           timestamp: new Date().toISOString()
         })
       }).catch(e => console.error("Error al notificar n8n:", e));
 
       toast({
-        title: "ALERTA DISPARADA",
-        description: "Tus contactos han sido notificados. Mantente a salvo.",
+        title: "ALERTA SOS ACTIVADA",
+        description: "Tus contactos de confianza están recibiendo tu ubicación. No estás solo.",
         variant: "destructive"
       });
 
