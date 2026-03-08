@@ -23,14 +23,14 @@ const FeedPage = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  const fetchDrops = async () => {
+  const fetchDrops = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       if (!user) { setLoading(false); return; }
 
       let query = (supabase as any)
         .from("drops")
-        .select("id, audio_url, created_at, expires_at, duration_seconds, listened_count, profiles:author_id(username, avatar_url)")
+        .select("id, audio_url, created_at, expires_at, duration_seconds, listened_count, profiles:author_id(username, avatar_url), reactions(count)")
         .gt("expires_at", new Date().toISOString());
 
       if (resolvedDomain) {
@@ -59,6 +59,7 @@ const FeedPage = () => {
         expiresAt: new Date(d.expires_at),
         durationSeconds: d.duration_seconds,
         listenedCount: d.listened_count,
+        reactionCount: d.reactions?.[0]?.count || 0
       }));
 
       setDrops(formattedDrops);
@@ -75,7 +76,7 @@ const FeedPage = () => {
     } catch (error: any) {
       toast({ title: "Error al sincronizar", description: error.message, variant: "destructive" });
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -83,7 +84,8 @@ const FeedPage = () => {
     fetchDrops();
     const channel = (supabase as any)
       .channel("drops-feed")
-      .on("postgres_changes", { event: "*", schema: "public", table: "drops" }, () => { fetchDrops(); })
+      .on("postgres_changes", { event: "*", schema: "public", table: "drops" }, () => { fetchDrops(true); })
+      .on("postgres_changes", { event: "*", schema: "public", table: "reactions" }, () => { fetchDrops(true); })
       .subscribe();
     return () => { channel.unsubscribe(); };
   }, [user, resolvedDomain]); // Re-ejecutar si cambia el filtro

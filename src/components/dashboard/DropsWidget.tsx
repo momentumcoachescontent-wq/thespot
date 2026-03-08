@@ -10,30 +10,52 @@ const DropsWidget = () => {
     const [loading, setLoading] = useState(true);
     const [now, setNow] = useState(new Date());
     const audioRef = useRef<HTMLAudioElement>(null);
+    const hasCountedRef = useRef<Record<string, boolean>>({});
 
     useEffect(() => {
         const timer = setInterval(() => setNow(new Date()), 1000);
         return () => clearInterval(timer);
     }, []);
 
-    useEffect(() => {
+    const fetchDrops = async () => {
         let query = (supabase as any)
             .from("drops")
-            .select("id, audio_url, created_at, expires_at, listened_count, profiles:author_id(username), spots!inner(university_domain)")
+            .select("id, audio_url, created_at, expires_at, listened_count, profiles:author_id(username), spots!inner(university_domain), reactions(count)")
             .gt("expires_at", new Date().toISOString());
 
         if (resolvedDomain) {
             query = query.eq("spots.university_domain", resolvedDomain);
         }
 
-        query
+        const { data, error } = await query
             .order("created_at", { ascending: false })
-            .limit(5)
-            .then(({ data, error }: any) => {
-                if (error) console.error("Error fetching drops widget:", error);
-                setDrops(data || []);
-                setLoading(false);
-            });
+            .limit(5);
+
+        if (error) {
+            console.error("Error fetching drops widget:", error);
+            return;
+        }
+
+        const formattedDrops = (data || []).map((d: any) => ({
+            ...d,
+            reaction_count: d.reactions?.[0]?.count || 0
+        }));
+
+        setDrops(formattedDrops);
+        setLoading(false);
+    };
+
+    useEffect(() => {
+        fetchDrops();
+
+        // Realtime sync
+        const channel = (supabase as any)
+            .channel("drops-widget")
+            .on("postgres_changes", { event: "*", schema: "public", table: "drops" }, () => fetchDrops())
+            .on("postgres_changes", { event: "*", schema: "public", table: "reactions" }, () => fetchDrops())
+            .subscribe();
+
+        return () => { channel.unsubscribe(); };
     }, [resolvedDomain]);
 
     const getTimeLeft = (expiresAt: string) => {
@@ -42,6 +64,19 @@ const DropsWidget = () => {
         const mins = Math.floor(diff / 60000);
         const secs = Math.floor((diff % 60000) / 1000);
         return `${mins}:${secs.toString().padStart(2, '0')}`;
+    };
+
+    const handleTimeUpdate = () => {
+        if (audioRef.current && playingId) {
+            const { currentTime, duration } = audioRef.current;
+            const progress = (currentTime / (duration || 1)) * 100;
+
+            if (progress >= 30 && !hasCountedRef.current[playingId]) {
+                hasCountedRef.current[playingId] = true;
+                (supabase as any).rpc('increment_listened_count', { drop_id: playingId })
+                    .catch((err: any) => console.error("Error incrementing widget listener:", err));
+            }
+        }
     };
 
     const toggle = (drop: any) => {
@@ -77,16 +112,21 @@ const DropsWidget = () => {
                                 </span>
                             </div>
                         </div>
-                        <div className="mt-1 flex items-center gap-3">
-                            <p className="font-mono text-[9px] text-muted-foreground">{new Date(d.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</p>
-                            <span className="flex items-center gap-1 font-mono text-[9px] text-muted-foreground">
-                                👂 {d.listened_count || 0}
-                            </span>
+                        <div className="mt-1.5 flex items-center gap-4">
+                            <span className="font-mono text-[9px] text-muted-foreground">{new Date(d.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                            <div className="flex items-center gap-3">
+                                <span className="flex items-center gap-1 font-mono text-[9px] text-muted-foreground/80">
+                                    👂 {d.listened_count || 0}
+                                </span>
+                                <span className="flex items-center gap-1 font-mono text-[9px] text-muted-foreground/80">
+                                    🔥 {d.reaction_count || 0}
+                                </span>
+                            </div>
                         </div>
                     </div>
                 </div>
             ))}
-            <audio ref={audioRef} onEnded={() => setPlayingId(null)} />
+            <audio ref={audioRef} onEnded={() => setPlayingId(null)} onTimeUpdate={handleTimeUpdate} />
         </div>
     );
 };

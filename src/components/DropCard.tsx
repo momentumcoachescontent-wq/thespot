@@ -30,8 +30,13 @@ const DropCard = ({ id, username, avatarEmoji = "🎤", audioUrl, createdAt, exp
   const audioRef = useRef<HTMLAudioElement>(null);
   const hasCountedRef = useRef(false);
 
+  // Sync with parent props (for realtime updates)
   useEffect(() => {
-    // Update time left every minute
+    setListenedCount(initialListenedCount);
+  }, [initialListenedCount]);
+
+  useEffect(() => {
+    // Update time left
     const updateTime = () => {
       const now = new Date();
       const diff = expiresAt.getTime() - now.getTime();
@@ -54,6 +59,16 @@ const DropCard = ({ id, username, avatarEmoji = "🎤", audioUrl, createdAt, exp
       if (user) setUserId(user.id);
     });
     loadReactions();
+
+    // Subscribe to reactions table for this drop
+    const channel = (supabase as any)
+      .channel(`reactions-${id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "reactions", filter: `drop_id=eq.${id}` }, () => {
+        loadReactions();
+      })
+      .subscribe();
+
+    return () => { channel.unsubscribe(); };
   }, [id]);
 
   const loadReactions = async () => {
@@ -84,6 +99,8 @@ const DropCard = ({ id, username, avatarEmoji = "🎤", audioUrl, createdAt, exp
       console.warn("Error loading reactions:", e);
     }
   };
+
+  const totalReactions = Object.values(reactionCounts).reduce((a, b) => a + b, 0);
 
   const handleReaction = async (code: string) => {
     if (!userId) return;
@@ -143,10 +160,12 @@ const DropCard = ({ id, username, avatarEmoji = "🎤", audioUrl, createdAt, exp
       // Listener logic: 30% of duration
       if (currentProgress >= 30 && !hasCountedRef.current) {
         hasCountedRef.current = true;
+        // Increment locally for immediate feedback
         setListenedCount(prev => prev + 1);
         (supabase as any).rpc('increment_listened_count', { drop_id: id })
-          .then(({ error }: any) => {
-            if (error) console.error("Error incrementing listener count:", error);
+          .catch((error: any) => {
+            console.error("Error incrementing listener count:", error);
+            // Revert local increment if failed? (Better to keep it for UX unless critical)
           });
       }
     }
@@ -155,7 +174,7 @@ const DropCard = ({ id, username, avatarEmoji = "🎤", audioUrl, createdAt, exp
   const handleEnded = () => {
     setIsPlaying(false);
     setProgress(0);
-    hasCountedRef.current = false; // Permite volver a contar si lo escucha de nuevo? El usuario dice "cantidad de personas", pero usualmente es por sesión.
+    // No reseteamos hasCountedRef para evitar contar múltiples veces en la misma sesión/remontaje corto
   };
 
   return (
@@ -176,13 +195,17 @@ const DropCard = ({ id, username, avatarEmoji = "🎤", audioUrl, createdAt, exp
             <p className="font-mono text-[9px] text-muted-foreground uppercase tracking-tighter">
               {new Date(createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
             </p>
-            <div className="flex items-center gap-1">
-              <span className="text-[10px]">👂</span>
-              <span className="font-mono text-[9px] text-muted-foreground">{listenedCount}</span>
+            <div className="flex items-center gap-2">
+              <span className="flex items-center gap-1 font-mono text-[9px] text-muted-foreground">
+                👂 {listenedCount}
+              </span>
+              <span className="flex items-center gap-1 font-mono text-[9px] text-muted-foreground">
+                🔥 {totalReactions}
+              </span>
             </div>
-            <div className="flex items-center gap-1 bg-spot-red/10 px-1.5 py-0.5 rounded border border-spot-red/20">
+            <div className="flex items-center gap-1 bg-spot-red/10 px-1.5 py-0.5 rounded border border-spot-red/20 ml-auto">
               <span className="font-mono text-[9px] text-spot-red font-bold uppercase tracking-widest whitespace-nowrap">
-                Expira: {timeLeft}
+                {timeLeft}
               </span>
             </div>
           </div>
