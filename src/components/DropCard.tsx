@@ -165,12 +165,10 @@ const DropCard = ({ id, username, avatarEmoji = "🎤", audioUrl, createdAt, exp
       // Listener logic: 30% of duration
       if (currentProgress >= 30 && !hasCountedRef.current) {
         hasCountedRef.current = true;
-        // Increment locally for immediate feedback
-        setListenedCount(prev => prev + 1);
+        // Solo llamamos al RPC. La persistencia se reflejará vía Realtime/Props.
         (supabase as any).rpc('increment_listened_count', { drop_id: id })
           .catch((error: any) => {
             console.error("Error incrementing listener count:", error);
-            // Revert local increment if failed? (Better to keep it for UX unless critical)
           });
       }
     }

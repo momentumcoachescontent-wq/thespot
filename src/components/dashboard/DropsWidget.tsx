@@ -116,7 +116,7 @@ const DropsWidget = () => {
                         <div className="flex items-center justify-between gap-2">
                             <p className="font-bebas text-sm leading-none text-foreground truncate">@{d.profiles?.username || "anónimo"}</p>
                             <div className="flex items-center gap-2">
-                                <span className="flex items-center gap-1 font-mono text-[9px] text-spot-lime">
+                                <span className={`flex items-center gap-1 font-mono text-[9px] ${playingId === d.id ? "text-spot-lime animate-pulse" : "text-muted-foreground"}`}>
                                     <Clock size={10} /> {getTimeLeft(d.expires_at)}
                                 </span>
                             </div>
