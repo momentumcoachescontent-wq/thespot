@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
-import { Mic, RefreshCw } from "lucide-react";
+import { Mic, RefreshCw, Trophy } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import TopBar from "@/components/TopBar";
 import BottomNav from "@/components/BottomNav";
@@ -16,7 +17,9 @@ const FeedPage = () => {
   const [drops, setDrops] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentSpot, setCurrentSpot] = useState<any>(null);
+  const [topUsers, setTopUsers] = useState<{ username: string; count: number }[]>([]);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const handleSosTrigger = useCallback(async () => {
     try {
@@ -114,6 +117,15 @@ const FeedPage = () => {
 
       setDrops(formattedDrops);
       setCurrentSpot({ name: `Campus ${domain.toUpperCase()}` });
+
+      // Top users from today's drops
+      const userMap: Record<string, number> = {};
+      (realDrops || []).forEach((d: any) => {
+        const u = d.profiles?.username || "anónimo";
+        userMap[u] = (userMap[u] || 0) + 1;
+      });
+      const sorted = Object.entries(userMap).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([username, count]) => ({ username, count }));
+      setTopUsers(sorted);
     } catch (error: any) {
       console.error("Error fetching drops:", error);
       toast({ title: "Error al sincronizar", description: error.message, variant: "destructive" });
@@ -215,6 +227,30 @@ const FeedPage = () => {
   return (
     <div className="min-h-screen bg-background pb-20">
       <TopBar spotName={currentSpot?.name || "Cargando..."} onlineCount={drops.length} />
+
+      {/* Top Users Strip */}
+      {topUsers.length > 0 && (
+        <div className="mx-auto max-w-md px-4 pt-3">
+          <div className="flex items-center justify-between mb-2">
+            <span className="flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-widest text-muted-foreground">
+              <Trophy size={10} className="text-amber-400" /> Top hoy
+            </span>
+            <button onClick={() => navigate("/admin")} className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground/50 hover:text-spot-lime transition-colors">ver más</button>
+          </div>
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+            {topUsers.map((u, i) => (
+              <div key={u.username} className="flex shrink-0 flex-col items-center gap-1">
+                <div className={`flex h-10 w-10 items-center justify-center rounded-full border-2 text-lg ${i === 0 ? "border-amber-400 bg-amber-400/10" : "border-border bg-muted"}`}>
+                  🎤
+                </div>
+                <span className="font-mono text-[8px] text-muted-foreground max-w-[44px] truncate">@{u.username}</span>
+                <span className={`font-bebas text-xs ${i === 0 ? "text-amber-400" : "text-muted-foreground"}`}>{u.count}</span>
+              </div>
+            ))}
+          </div>
+          <div className="mt-3 h-px bg-border" />
+        </div>
+      )}
 
       <div className="mx-auto max-w-md space-y-3 px-4 py-4">
         {loading ? (

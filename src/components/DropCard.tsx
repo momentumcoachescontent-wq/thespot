@@ -17,12 +17,16 @@ const REACTIONS = [
   { emoji: "🔥", code: "fire" },
   { emoji: "❤️", code: "heart" },
   { emoji: "👏", code: "clap" },
+  { emoji: "😂", code: "laugh" },
+  { emoji: "😭", code: "cry" },
+  { emoji: "🤯", code: "mind_blown" },
 ];
 
 const DropCard = ({ id, username, avatarEmoji = "🎤", audioUrl, createdAt, expiresAt }: DropCardProps) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [reactionCounts, setReactionCounts] = useState<Record<string, number>>({ fire: 0, heart: 0, clap: 0 });
+  const [playCount, setPlayCount] = useState(0);
+  const [reactionCounts, setReactionCounts] = useState<Record<string, number>>({ fire: 0, heart: 0, clap: 0, laugh: 0, cry: 0, mind_blown: 0 });
   const [userReaction, setUserReaction] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -44,7 +48,7 @@ const DropCard = ({ id, username, avatarEmoji = "🎤", audioUrl, createdAt, exp
 
       if (!data) return;
 
-      const counts: Record<string, number> = { fire: 0, heart: 0, clap: 0 };
+      const counts: Record<string, number> = { fire: 0, heart: 0, clap: 0, laugh: 0, cry: 0, mind_blown: 0 };
       data.forEach((r: any) => {
         if (r.emoji_code && counts[r.emoji_code] !== undefined) {
           counts[r.emoji_code]++;
@@ -108,6 +112,7 @@ const DropCard = ({ id, username, avatarEmoji = "🎤", audioUrl, createdAt, exp
       audioRef.current.pause();
     } else {
       audioRef.current.play().catch(e => console.error("Auto-play error", e));
+      setPlayCount(c => c + 1);
     }
     setIsPlaying(!isPlaying);
   };
@@ -138,9 +143,14 @@ const DropCard = ({ id, username, avatarEmoji = "🎤", audioUrl, createdAt, exp
           <h1 className="font-bebas text-2xl tracking-[2px] text-spot-lime drop-shadow-[0_0_10px_rgba(200,255,0,0.4)]">
             {username}
           </h1>
-          <p className="font-mono text-[9px] text-muted-foreground uppercase tracking-tighter">
-            {new Date(createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-          </p>
+          <div className="flex items-center gap-2">
+            <p className="font-mono text-[9px] text-muted-foreground uppercase tracking-tighter">
+              {new Date(createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+            </p>
+            {playCount > 0 && (
+              <span className="font-mono text-[9px] text-muted-foreground/60">· {playCount} rep.</span>
+            )}
+          </div>
         </div>
         <CountdownRing expiresAt={expiresAt} />
       </div>
@@ -182,8 +192,8 @@ const DropCard = ({ id, username, avatarEmoji = "🎤", audioUrl, createdAt, exp
         </div>
       </div>
 
-      {/* Emoji Reactions */}
-      <div className="mt-3 flex items-center gap-2">
+      {/* Sticker Reactions */}
+      <div className="mt-3 flex flex-wrap items-center gap-1.5">
         {REACTIONS.map(({ emoji, code }) => {
           const isActive = userReaction === code;
           const count = reactionCounts[code] || 0;
