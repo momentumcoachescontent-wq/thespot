@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { useToast } from "@/hooks/use-toast";
 import { AlertCircle, ShieldAlert } from "lucide-react";
@@ -64,6 +64,9 @@ const SosModal = ({ isOpen, onClose, onTriggerAction }: SosModalProps) => {
                         <ShieldAlert className="animate-pulse" />
                         Alerta en Curso
                     </DialogTitle>
+                    <DialogDescription className="sr-only">
+                        Alerta SOS activa. Ingresa tu PIN para cancelarla antes de que se notifique a tus contactos de confianza.
+                    </DialogDescription>
                 </DialogHeader>
 
                 <div className="flex flex-col items-center justify-center space-y-8 py-6">

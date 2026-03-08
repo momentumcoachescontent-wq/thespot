@@ -46,18 +46,21 @@ const FeedPage = () => {
 
       if (incError) throw incError;
 
-      // 3. Notificar a n8n (Webhook real de SOS)
-      fetch("https://n8n.tu-instancia.com/webhook/thespot-sos-alert", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          incident_id: incident.id,
-          user_id: user.id,
-          user_email: user.email,
-          location: { lat: userLat, lng: userLng },
-          timestamp: new Date().toISOString()
-        })
-      }).catch(e => console.error("Error al notificar n8n:", e));
+      // 3. Notificar a n8n (solo si hay un webhook configurado)
+      const n8nUrl = import.meta.env.VITE_N8N_SOS_WEBHOOK;
+      if (n8nUrl) {
+        fetch(n8nUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            incident_id: incident.id,
+            user_id: user.id,
+            user_email: user.email,
+            location: { lat: userLat, lng: userLng },
+            timestamp: new Date().toISOString()
+          })
+        }).catch(e => console.warn("n8n SOS webhook error:", e));
+      }
 
       toast({
         title: "ALERTA SOS ACTIVADA",
@@ -131,7 +134,7 @@ const FeedPage = () => {
       .subscribe();
 
     return () => {
-      (supabase as any).removeChannel(channel);
+      channel.unsubscribe();
     };
   }, []);
 
