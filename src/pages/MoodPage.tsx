@@ -5,6 +5,16 @@ import MoodSelector from "@/components/MoodSelector";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
+// Maps mood string values to INTEGER 1-5 (schema constraint)
+const MOOD_TO_INT: Record<string, number> = {
+  anxious: 1,
+  frustrated: 2,
+  low: 2,
+  neutral: 3,
+  good: 4,
+  motivated: 5,
+};
+
 const MoodPage = () => {
   const [selected, setSelected] = useState<string | undefined>();
   const [submitted, setSubmitted] = useState(false);
@@ -19,7 +29,7 @@ const MoodPage = () => {
       if (user) {
         await (supabase as any).from('mood_checkins').insert({
           user_id: user.id,
-          mood: selected,
+          mood: MOOD_TO_INT[selected] ?? 3,
         });
       }
       setSubmitted(true);

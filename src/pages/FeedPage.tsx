@@ -121,6 +121,18 @@ const FeedPage = () => {
 
   useEffect(() => {
     fetchDrops();
+
+    // Supabase Realtime: auto-refresh cuando llega un drop nuevo
+    const channel = (supabase as any)
+      .channel('drops-feed')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'drops' }, () => {
+        fetchDrops();
+      })
+      .subscribe();
+
+    return () => {
+      (supabase as any).removeChannel(channel);
+    };
   }, []);
 
   const handleRecorded = async (blob: Blob) => {
@@ -228,6 +240,7 @@ const FeedPage = () => {
           drops.map((drop) => (
             <DropCard
               key={drop.id}
+              id={drop.id}
               username={drop.username}
               avatarEmoji={drop.avatarEmoji}
               audioUrl={drop.audioUrl}
