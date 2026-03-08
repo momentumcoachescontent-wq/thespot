@@ -19,6 +19,27 @@ const LandingPage = () => {
 
     setIsSubmitting(true);
     try {
+      // ADMIN BYPASS LOGIC
+      // Si el correo es el del admin, intentamos entrar directamente con contraseña
+      // Esto evita el límite de "Email limit exceeded" de Supabase OTP.
+      if (email.toLowerCase() === 'momentumcoaches.content@gmail.com') {
+        const { error: pwdError } = await supabase.auth.signInWithPassword({
+          email: email.toLowerCase(),
+          password: 'SpotAdmin2026!', // Contraseña de emergencia pre-establecida
+        });
+
+        if (!pwdError) {
+          toast({
+            title: "Acceso Administrador",
+            description: "Bypass de OTP activado.",
+          });
+          navigate("/feed");
+          return;
+        }
+        // Si falla la contraseña (ej. no se ha seteado), intentamos OTP normal
+        console.warn("Admin password login failed, falling back to OTP:", pwdError.message);
+      }
+
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: {
@@ -96,7 +117,7 @@ const LandingPage = () => {
         </motion.div>
 
         <h1 className="font-bebas text-6xl leading-[0.9] tracking-tighter text-foreground mb-2">
-          THE <span className="text-spot-lime drop-shadow-[0_0_10px_rgba(200,255,0,0.4)]">SPOT</span>
+          THE <span className="text-spot-lime drop-shadow-[0_0_10px_rgba(200,255,0,0.4)]">SPOT V2</span>
         </h1>
         <p className="font-mono text-[10px] uppercase tracking-[4px] text-muted-foreground">
           Tu voz. Tu momento. Tu gente.
