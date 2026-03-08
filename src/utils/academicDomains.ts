@@ -1,0 +1,117 @@
+export const ACADEMIC_DOMAINS = {
+    universities: [
+        { name: "UNAM", domain: "comunidad.unam.mx" },
+        { name: "Tec de Monterrey", domain: "tec.mx" },
+        { name: "IPN", domain: "alumno.ipn.mx" },
+        { name: "U de G", domain: "alumnos.udg.mx" },
+        { name: "UANL", domain: "uanl.edu.mx" },
+        { name: "ITAM", domain: "itam.mx" },
+        { name: "Ibero", domain: "ibero.mx" },
+        { name: "COLMEX", domain: "colmex.mx" },
+        { name: "UAQ", domain: "alumnos.uaq.mx" },
+        { name: "BUAP", domain: "alumno.buap.mx" },
+        { name: "Universidad Panamericana", domain: "up.edu.mx" },
+        { name: "UAM", domain: "alumnos.uam.mx" },
+        { name: "Anáhuac", domain: "anahuac.mx" },
+        { name: "ITESO", domain: "iteso.mx" },
+        { name: "UAEH", domain: "uaeh.edu.mx" },
+        { name: "UDLAP", domain: "udlap.mx" },
+        { name: "UASLP", domain: "alumnos.uaslp.edu.mx" },
+        { name: "UAEMex", domain: "alumno.uaemex.mx" },
+        { name: "UABC", domain: "uabc.edu.mx" },
+        { name: "USON", domain: "unison.mx" },
+        { name: "UV", domain: "estudiantes.uv.mx" },
+        { name: "UMSNH", domain: "umich.mx" },
+        { name: "UADY", domain: "alumnos.uady.mx" },
+        { name: "UNITEC", domain: "my.unitec.edu.mx" },
+        { name: "UVM", domain: "my.uvm.edu.mx" },
+        { name: "ITSON", domain: "potros.itson.edu.mx" },
+        { name: "UACH", domain: "uach.mx" },
+        { name: "UACJ", domain: "alumnos.uacj.mx" },
+        { name: "UAEM", domain: "uaem.edu.mx" },
+        { name: "UJAT", domain: "alumno.ujat.mx" },
+        { name: "UAA", domain: "alumnos.uaa.mx" },
+        { name: "UANE", domain: "uane.edu.mx" },
+        { name: "UCP", domain: "ucp.edu.mx" },
+        { name: "CIDE", domain: "cide.edu" },
+        { name: "FLACSO", domain: "flacso.edu.mx" },
+        { name: "U. de Montemorelos", domain: "um.edu.mx" },
+        { name: "U. La Salle", domain: "lasallistas.edu.mx" },
+        { name: "CETYS Universidad", domain: "cetys.edu.mx" },
+        { name: "UDEM", domain: "udem.edu" },
+        { name: "UDLA", domain: "udla.mx" },
+        { name: "UNACH", domain: "unach.mx" },
+        { name: "UADEC", domain: "uadec.edu.mx" },
+        { name: "UCOL", domain: "ucol.mx" },
+        { name: "UAN", domain: "uan.edu.mx" },
+        { name: "UQROO", domain: "uqroo.edu.mx" },
+        { name: "El Claustro", domain: "elclaustro.edu.mx" },
+        { name: "UIC", domain: "uic.edu.mx" },
+        { name: "U. Marista", domain: "marista.edu.mx" }
+    ],
+    prepas: [
+        { name: "PrepaTec", domain: "tec.mx" },
+        { name: "ENP UNAM", domain: "alumno.enp.unam.mx" },
+        { name: "CCH UNAM", domain: "alumno.cch.unam.mx" },
+        { name: "CECyT IPN", domain: "alumno.ipn.mx" },
+        { name: "Bachillerato Anáhuac", domain: "bachilleratoanahuac.edu.mx" },
+        { name: "Prepa La Salle", domain: "lasalle.mx" },
+        { name: "Colegio de Bachilleres", domain: "bachilleres.edu.mx" },
+        { name: "CONALEP", domain: "conalepmex.edu.mx" },
+        { name: "Humboldt", domain: "humboldt.edu.mx" },
+        { name: "ASF", domain: "asf.edu.mx" },
+        { name: "Eton School", domain: "eton.edu.mx" },
+        { name: "Colegio Vista Hermosa", domain: "cvh.edu.mx" },
+        { name: "Bachillerato Ibero", domain: "ibero.mx" },
+        { name: "Colegio Williams", domain: "colwilliams.edu.mx" },
+        { name: "Greengates", domain: "greengates.edu.mx" },
+        { name: "Liceo Mexicano Japonés", domain: "lmj.edu.mx" },
+        { name: "Instituto Patria", domain: "patria.edu.mx" },
+        { name: "Colegio Franco Inglés", domain: "francoingles.edu.mx" },
+        { name: "Colegio Madrid", domain: "colmadrid.edu.mx" },
+        { name: "Westhill Institute", domain: "westhill.edu.mx" },
+        { name: "Peterson Schools", domain: "peterson.edu.mx" },
+        { name: "Prepa UDEM", domain: "udem.edu" },
+        { name: "Liceo Franco-Mexicano", domain: "lfm.edu.mx" },
+        { name: "Instituto Cumbres", domain: "cumbresmexico.com" },
+        { name: "Colegio del Pilar", domain: "pilar.edu.mx" },
+        { name: "The British School", domain: "british.edu.mx" },
+        { name: "Colegio Monte Sinaí", domain: "montesinai.edu.mx" },
+        { name: "Colegio Israelita", domain: "cim.edu.mx" },
+        { name: "Miraflores", domain: "miraflores.edu.mx" },
+        { name: "The Wingate School", domain: "wingate.edu.mx" },
+        { name: "Irish Institute", domain: "irishmexico.com" },
+        { name: "Colegio Anglo Americano", domain: "angloamericano.edu.mx" },
+        { name: "Instituto Kipling", domain: "kipling.edu.mx" },
+        { name: "Colegio Regina", domain: "regina.edu.mx" },
+        { name: "Prepa Ibero Puebla", domain: "iberopuebla.mx" },
+        { name: "Colegio Simón Bolívar", domain: "lasallesb.edu.mx" },
+        { name: "Instituto Asunción", domain: "asuncion.edu.mx" },
+        { name: "Colegio Ciudad de México", domain: "colnal.edu.mx" },
+        { name: "Thomas Jefferson", domain: "itj.edu.mx" },
+        { name: "Colegio Marymount", domain: "marymount.edu.mx" },
+        { name: "San Patricio", domain: "sanpatricio.edu.mx" },
+        { name: "IAS", domain: "ias.edu.mx" },
+        { name: "Kinston School", domain: "kinston.edu.mx" },
+        { name: "Oakridge School", domain: "oakridge.edu.mx" },
+        { name: "Colegio Santa María", domain: "santamaria.edu.mx" },
+        { name: "Bachillerato Cervantes", domain: "cervantes.edu.mx" },
+        { name: "Tecnológico Roosevelt", domain: "itroosevelt.edu.mx" },
+        { name: "DGB", domain: "bachillerato.sep.gob.mx" }
+    ]
+};
+
+export const validateAcademicDomain = (email: string) => {
+    const domain = email.split("@")[1]?.toLowerCase();
+    if (!domain) return null;
+
+    // Wildcard para Tecnológicos
+    if (domain.startsWith("it") && domain.endsWith(".edu.mx")) {
+        return "TecNM (Instituto Tecnológico)";
+    }
+
+    const all = [...ACADEMIC_DOMAINS.universities, ...ACADEMIC_DOMAINS.prepas];
+    const found = all.find(item => item.domain === domain);
+
+    return found ? found.name : null;
+};

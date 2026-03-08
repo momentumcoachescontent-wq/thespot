@@ -12,10 +12,19 @@ interface Profile {
 interface AuthContextType {
     user: User | null;
     session: Session | null;
-    profile: Profile | null;
+    profile: {
+        username?: string;
+        role?: string;
+        university_domain?: string;
+        full_name?: string;
+        institution_name?: string;
+        phone?: string;
+        onboarding_completed?: boolean;
+    } | null;
     isAdmin: boolean;
     loading: boolean;
     signOut: () => Promise<void>;
+    completeOnboarding: (data: { full_name: string; username: string; institution_name: string; phone: string }) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -26,12 +35,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [profile, setProfile] = useState<Profile | null>(null);
     const [loading, setLoading] = useState(true);
 
-    const fetchProfile = async (userId: string) => {
+    const fetchProfile = async (uid: string) => {
         try {
             const { data, error } = await supabase
                 .from("profiles")
-                .select("id, username, role, university_domain")
-                .eq("id", userId)
+                .select("id, username, role, university_domain, full_name, institution_name, phone, onboarding_completed")
+                .eq("id", uid)
                 .single();
 
             if (error) throw error;
@@ -73,10 +82,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await supabase.auth.signOut();
     };
 
+    const completeOnboarding = async (data: { full_name: string; username: string; institution_name: string; phone: string }) => {
+        if (!user) {
+            console.error("No user logged in to complete onboarding.");
+            return;
+        }
+        try {
+            const { error } = await supabase
+                .from("profiles")
+                .update({
+                    full_name: data.full_name,
+                    username: data.username,
+                    institution_name: data.institution_name,
+                    phone: data.phone,
+                    onboarding_completed: true,
+                })
+                .eq("id", user.id);
+
+            if (error) throw error;
+
+            // Re-fetch profile to update context
+            await fetchProfile(user.id);
+        } catch (err) {
+            console.error("Error completing onboarding:", err);
+            throw err; // Re-throw to allow caller to handle
+        }
+    };
+
     const isAdmin = profile?.role === 'admin';
 
     return (
-        <AuthContext.Provider value={{ user, session, profile, isAdmin, loading, signOut }}>
+        <AuthContext.Provider value={{ session, user, profile, isAdmin, loading, signOut, completeOnboarding }}
+        >
             {children}
         </AuthContext.Provider>
     );

@@ -1,21 +1,44 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Mic, ArrowRight, ShieldCheck, Mail } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { validateAcademicDomain } from "@/utils/academicDomains";
+import AcademicErrorModal from "@/components/AcademicErrorModal";
+import OnboardingModal from "@/components/OnboardingModal";
 
 const LandingPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { profile, loading: authLoading } = useAuth();
   const [email, setEmail] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [step, setStep] = useState<"email" | "otp">("email");
   const [otp, setOtp] = useState("");
+  const [showAcademicError, setShowAcademicError] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [detectedInstitution, setDetectedInstitution] = useState("");
+
+  // Redirección si ya está logueado y onboarding completado
+  useEffect(() => {
+    if (profile?.onboarding_completed) {
+      navigate("/home");
+    }
+  }, [profile, navigate]);
 
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) return;
+
+    // VALIDACIÓN ACADÉMICA
+    const institution = validateAcademicDomain(email);
+    if (!institution && !email.toLowerCase().includes('admin') && email.toLowerCase() !== 'momentumcoaches.content@gmail.com') {
+      setShowAcademicError(true);
+      return;
+    }
+    setDetectedInstitution(institution || "");
 
     setIsSubmitting(true);
     try {
@@ -86,7 +109,22 @@ const LandingPage = () => {
         title: "Bienvenido al Spot",
         description: "Autenticación exitosa.",
       });
-      navigate("/feed");
+
+      // Si el perfil existe pero no ha completado onboarding, lo mostramos
+      // Si no existe perfil todavía, Supabase lo creará via el trigger de Auth
+      // Pero necesitamos esperar un poco o forzar el check
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: prof } = await (supabase as any).from("profiles").select("onboarding_completed").eq("id", user.id).single();
+        if (prof && !prof.onboarding_completed) {
+          setShowOnboarding(true);
+        } else if (prof?.onboarding_completed) {
+          navigate("/home");
+        } else {
+          // Caso borde: usuario nuevo sin perfil aún (trigger lento)
+          setShowOnboarding(true);
+        }
+      }
     } catch (error: any) {
       console.error("Verification error:", error);
       toast({
@@ -102,6 +140,22 @@ const LandingPage = () => {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background px-6 relative overflow-hidden">
       <div className="absolute inset-0 bg-[linear-gradient(rgba(200,255,0,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(200,255,0,0.02)_1px,transparent_1px)] bg-[size:40px_40px] opacity-20 pointer-events-none" />
+
+      {/* MODALS */}
+      <AnimatePresence>
+        {showAcademicError && (
+          <AcademicErrorModal
+            email={email}
+            onClose={() => setShowAcademicError(false)}
+          />
+        )}
+        {showOnboarding && (
+          <OnboardingModal
+            initialInstitution={detectedInstitution}
+            onComplete={() => navigate("/home")}
+          />
+        )}
+      </AnimatePresence>
 
       <motion.div
         initial={{ opacity: 0, y: 30 }}
@@ -149,7 +203,7 @@ const LandingPage = () => {
                   <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
                   <input
                     type="email"
-                    placeholder="tu@universidad.edu"
+                    placeholder="Email de Tu Preparatoria o Universidad"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
