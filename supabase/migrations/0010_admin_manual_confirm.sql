@@ -12,14 +12,15 @@ SET
 WHERE email = 'momentumcoaches.content@gmail.com';
 
 -- 2. Asegurar que el perfil en public.profiles esté bien configurado como admin
--- Usamos UPSERT para estar seguros
-INSERT INTO public.profiles (id, email, edu_email, university_domain)
-SELECT id, email, email, 'admin'
+-- Usamos UPSERT para estar seguros e inclumos el username (REQUERIDO)
+INSERT INTO public.profiles (id, email, edu_email, university_domain, username)
+SELECT id, email, email, 'admin', 'Admin'
 FROM auth.users 
 WHERE email = 'momentumcoaches.content@gmail.com'
 ON CONFLICT (id) DO UPDATE SET
     university_domain = 'admin',
-    edu_email = EXCLUDED.email;
+    edu_email = EXCLUDED.email,
+    username = COALESCE(public.profiles.username, 'Admin');
 
 -- 3. Instrucción: 
 -- Para que el bypass funcione, el administrador debe tener una contraseña fija.
