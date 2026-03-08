@@ -3,6 +3,7 @@
 
 -- 1. Extender perfiles con campos adicionales
 ALTER TABLE public.profiles 
+ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'user' CHECK (role IN ('user', 'admin')),
 ADD COLUMN IF NOT EXISTS full_name TEXT,
 ADD COLUMN IF NOT EXISTS institution_name TEXT,
 ADD COLUMN IF NOT EXISTS phone TEXT,
@@ -24,6 +25,5 @@ CREATE POLICY "Solo admin puede leer reportes" ON public.institution_reports FOR
     EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
 );
 
--- Garantizar que los nuevos usuarios sean freemium (si no se maneja ya)
--- Nota: La columna role ya está en profiles por migración 0013.
-ALTER TABLE public.profiles ALTER COLUMN role SET DEFAULT 'user';
+-- Garantizar que los nuevos usuarios sean freemium
+-- La columna role ya se configuró con default 'user' arriba.
