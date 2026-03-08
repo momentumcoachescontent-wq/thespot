@@ -36,7 +36,9 @@ const AdminPage = () => {
   const [tab, setTab] = useState<"overview" | "drops" | "users" | "incidents" | "settings">("overview");
   const [settings, setSettings] = useState<any>({
     ai_moderation_enabled: false,
-    auto_moderation_mode: false
+    auto_moderation_mode: false,
+    moderation_rules: "",
+    ai_model_provider: "openai"
   });
   const [stats, setStats] = useState({ users: 0, drops: 0, incidents: 0, podcasts: 0 });
   const [dropsByDay, setDropsByDay] = useState<any[]>([]);
@@ -361,15 +363,55 @@ const AdminPage = () => {
                     </button>
                   </div>
 
+                  <div className="flex items-center justify-between rounded-xl border border-border bg-muted/30 p-4">
+                    <div className="space-y-1">
+                      <h4 className="font-bebas text-lg text-foreground">Motor de IA</h4>
+                      <p className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">Selecciona el ojo que vigilará el campus.</p>
+                    </div>
+                    <select
+                      value={settings.ai_model_provider}
+                      onChange={async (e) => {
+                        const newValue = e.target.value;
+                        const { error } = await (supabase as any)
+                          .from('site_settings')
+                          .upsert({ key: 'ai_model_provider', value: newValue });
+
+                        if (!error) {
+                          setSettings({ ...settings, ai_model_provider: newValue });
+                          toast({ title: `IA cambiada a ${newValue.toUpperCase()}` });
+                        }
+                      }}
+                      className="rounded-lg border border-border bg-black px-3 py-1 font-mono text-[10px] text-spot-lime focus:outline-none focus:border-spot-lime"
+                    >
+                      <option value="openai">OpenAI (GPT-4o)</option>
+                      <option value="google">Google (Gemini Pro)</option>
+                    </select>
+                  </div>
+
                   <div className="h-px bg-border" />
 
-                  <div className="space-y-2 opacity-50 pointer-events-none">
-                    <h4 className="font-bebas text-lg text-foreground">Reglas de Moderación</h4>
-                    <p className="font-mono text-[10px] text-muted-foreground italic">Próximamente: Personaliza los criterios de riesgo.</p>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-bebas text-lg text-foreground">Reglas de Moderación</h4>
+                      <button
+                        onClick={async () => {
+                          const { error } = await (supabase as any)
+                            .from('site_settings')
+                            .upsert({ key: 'moderation_rules', value: settings.moderation_rules });
+
+                          if (!error) toast({ title: "Reglas actualizadas" });
+                        }}
+                        className="rounded-md bg-spot-lime/10 px-2 py-1 font-bebas text-[10px] text-spot-lime border border-spot-lime/20 hover:bg-spot-lime/20"
+                      >
+                        GUARDAR REGLAS
+                      </button>
+                    </div>
+                    <p className="font-mono text-[10px] text-muted-foreground">Personaliza el criterio de la IA. Sé específico sobre qué prohibir.</p>
                     <textarea
-                      disabled
-                      className="w-full rounded-xl border border-border bg-muted p-3 font-mono text-[10px] h-24"
-                      placeholder="Ej: Bloquear contenido violento o palabras de odio..."
+                      value={settings.moderation_rules}
+                      onChange={(e) => setSettings({ ...settings, moderation_rules: e.target.value })}
+                      className="w-full rounded-xl border border-border bg-muted/50 p-4 font-mono text-[11px] h-32 text-zinc-300 focus:border-spot-lime/50 focus:outline-none focus:bg-black/20"
+                      placeholder="Ej: Bloquear acoso, lenguaje vulgar, o menciones a la competencia..."
                     />
                   </div>
                 </div>

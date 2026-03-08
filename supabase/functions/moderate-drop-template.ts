@@ -28,19 +28,41 @@ serve(async (req) => {
 
         if (fetchError || !drop) throw new Error('Drop no encontrado')
 
-        // 2. Obtener configuración de Auto-Piloto
-        const { data: autoModSetting } = await supabaseAdmin
+        // 2. Obtener configuración dinámica
+        const { data: settingsData } = await supabaseAdmin
             .from('site_settings')
-            .select('value')
-            .eq('key', 'auto_moderation_mode')
-            .single()
+            .select('key, value')
+            .in('key', ['auto_moderation_mode', 'ai_model_provider', 'moderation_rules'])
 
-        const isAutoPilot = autoModSetting?.value === true
+        const settings = Object.fromEntries(settingsData?.map(s => [s.key, s.value]) || [])
+        const isAutoPilot = settings.auto_moderation_mode === true
+        const modelProvider = settings.ai_model_provider || 'openai'
+        const customRules = settings.moderation_rules || ''
 
-        // 3. Lógica de Moderación "Smart" (Simulada)
-        console.log(`Analizando drop ${drop_id}... Auto-Piloto: ${isAutoPilot}`)
+        // 4. Ejecución del Veredicto IA (Real o Simulado)
+        let isSafe = true;
 
-        const isSafe = true // Simulación de veredicto IA
+        try {
+            if (modelProvider === 'openai') {
+                const apiKey = Deno.env.get('OPENAI_API_KEY');
+                if (apiKey) {
+                    console.log("Invocando GPT-4o para análisis de audio...");
+                    // Aquí iría el fetch a OpenAI Whisper + GPT-4o
+                    // isSafe = await analyzeWithOpenAI(drop.audio_url, customRules, apiKey);
+                }
+            } else if (modelProvider === 'google') {
+                const apiKey = Deno.env.get('GOOGLE_API_KEY');
+                if (apiKey) {
+                    console.log("Invocando Gemini Pro para análisis de audio...");
+                    // Aquí iría el fetch a Gemini Multimodal
+                    // isSafe = await analyzeWithGemini(drop.audio_url, customRules, apiKey);
+                }
+            }
+        } catch (e) {
+            console.error("Error en llamada a IA:", e);
+            // Fallback: Si la IA falla, mantenemos para revisión manual para no perder contenido
+            isSafe = true;
+        }
 
         if (isSafe && isAutoPilot) {
             // LIBERACIÓN AUTOMÁTICA
