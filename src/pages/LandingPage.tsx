@@ -263,4 +263,4 @@ const LandingPage = () => {
 };
 
 export default LandingPage;
-// Production Release v1.5.1 - Custom AI Models & Rules Active
+// Production Release v1.5.2 - Auto-Moderation Engine Resolved

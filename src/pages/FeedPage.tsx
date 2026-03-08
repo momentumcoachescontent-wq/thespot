@@ -146,26 +146,33 @@ const FeedPage = () => {
 
       const isModerationEnabled = moderationSetting?.value === true;
 
-      const { error: dbError } = await (supabase as any).from("drops").insert({
+      const { data: newDrop, error: dbError } = await (supabase as any).from("drops").insert({
         spot_id: spotId,
         author_id: user.id,
         audio_url: publicUrl,
         duration_seconds: Math.floor(blob.size / 15000) || 10,
         expires_at: expiresAt,
         is_flagged: isModerationEnabled // If enabled, we flag it initially for processing
-      });
+      }).select("id").single();
 
       if (dbError) throw dbError;
 
-      if (isModerationEnabled) {
+      if (isModerationEnabled && newDrop) {
         toast({
           title: "Análisis de IA en curso",
           description: "Estamos asegurando que tu mensaje sea un espacio seguro. Se activará en breve.",
           variant: "default"
         });
 
-        // Simulación: En un entorno real, aquí se llamaría a supabase.functions.invoke('moderate-drop')
-        // o un trigger de DB se encargaría de procesarlo.
+        // Invocación Real de la Edge Function
+        try {
+          const { error: invokeError } = await supabase.functions.invoke('moderate-drop', {
+            body: { drop_id: newDrop.id }
+          });
+          if (invokeError) console.error("Error al invocar moderación:", invokeError);
+        } catch (e) {
+          console.error("Fallo crítico invocando IA:", e);
+        }
       } else {
         toast({ title: "Drop activo 🎙️", description: "Tu voz es ahora parte del presente. Desaparecerá en 15 minutos." });
       }

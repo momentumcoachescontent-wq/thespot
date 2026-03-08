@@ -47,6 +47,7 @@ const AdminPage = () => {
   const [topUsers, setTopUsers] = useState<any[]>([]);
   const [incidents, setIncidents] = useState<any[]>([]);
   const [flaggedDrops, setFlaggedDrops] = useState<any[]>([]);
+  const [moderationLogs, setModerationLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -119,9 +120,6 @@ const AdminPage = () => {
 
       // Mood distribution
       const moodCounts: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
-      moodData.forEach((m: any) => { if (m.mood in moodCounts) moodCounts[m.mood]++; });
-      setMoodDist(Object.entries(moodCounts).map(([mood, count]) => ({ name: MOOD_LABELS[Number(mood)], value: count })).filter(m => m.value > 0));
-
       // Moderation queue
       const { data: flaggedData } = await (supabase as any)
         .from('drops')
@@ -130,6 +128,15 @@ const AdminPage = () => {
         .order('created_at', { ascending: false });
 
       setFlaggedDrops(flaggedData || []);
+
+      // Moderation logs
+      const { data: logsData } = await (supabase as any)
+        .from('moderation_logs')
+        .select('*, profiles:user_id(username)')
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      setModerationLogs(logsData || []);
 
     } catch (e) {
       console.error("Dashboard error:", e);
@@ -248,6 +255,27 @@ const AdminPage = () => {
                     <Bar dataKey="drops" fill="#00F0FF" radius={[0, 6, 6, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
+
+                <div className="mt-6 space-y-4">
+                  <h3 className="font-bebas text-lg text-foreground uppercase tracking-widest">Historial de Moderación Reciente</h3>
+                  <div className="space-y-2">
+                    {moderationLogs.length === 0 ? (
+                      <p className="font-mono text-[10px] text-muted-foreground uppercase opacity-50">Sin actividad registrada</p>
+                    ) : moderationLogs.map(log => (
+                      <div key={log.id} className="flex items-center justify-between rounded-lg border border-border bg-muted/20 p-2 font-mono text-[9px]">
+                        <div className="flex items-center gap-2">
+                          <span className={`${log.action === 'AUTO_APPROVED' ? 'text-spot-lime' : 'text-spot-red'} font-bold`}>
+                            [{log.action}]
+                          </span>
+                          <span className="text-foreground">@{log.profiles?.username}</span>
+                        </div>
+                        <span className="text-muted-foreground opacity-60">
+                          {new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             )}
 
@@ -384,7 +412,10 @@ const AdminPage = () => {
                       className="rounded-lg border border-border bg-black px-3 py-1 font-mono text-[10px] text-spot-lime focus:outline-none focus:border-spot-lime"
                     >
                       <option value="openai">OpenAI (GPT-4o)</option>
+                      <option value="gpt-4o-mini">OpenAI (GPT-4o mini)</option>
                       <option value="google">Google (Gemini Pro)</option>
+                      <option value="gemini-1.5-flash">Google (Gemini 1.5 Flash)</option>
+                      <option value="gemini-1.5-flash-lite">Google (Gemini 1.5 Flash-Lite)</option>
                     </select>
                   </div>
 
