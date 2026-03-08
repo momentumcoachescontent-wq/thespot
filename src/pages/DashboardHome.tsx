@@ -1,4 +1,4 @@
-import { Mic, MapPin, CalendarDays, Trophy, Headphones, Smile } from "lucide-react";
+import { Mic, MapPin, CalendarDays, Trophy, Headphones } from "lucide-react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 
@@ -9,7 +9,6 @@ import MapWidget from "@/components/dashboard/MapWidget";
 import TopUsersWidget from "@/components/dashboard/TopUsersWidget";
 import EventsWidget from "@/components/dashboard/EventsWidget";
 import PodcastWidget from "@/components/dashboard/PodcastWidget";
-import MoodWidget from "@/components/dashboard/MoodWidget";
 
 const DashboardHome = () => {
   const navigate = useNavigate();
@@ -59,11 +58,6 @@ const DashboardHome = () => {
           {/* Podcast */}
           <Widget title="PODCAST" icon={Headphones} linkTo="/podcast">
             <PodcastWidget />
-          </Widget>
-
-          {/* Mood — span full on md+, 1 col on mobile */}
-          <Widget title="¿CÓMO ESTÁS HOY?" icon={Smile} span="md:col-span-2 lg:col-span-3">
-            <MoodWidget />
           </Widget>
         </div>
       </div>
