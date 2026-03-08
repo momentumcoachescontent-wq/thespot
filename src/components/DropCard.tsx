@@ -16,7 +16,12 @@ interface DropCardProps {
 }
 
 const REACTIONS = [
-  // ... (mismo código)
+  { emoji: "🔥", code: "fire" },
+  { emoji: "❤️", code: "heart" },
+  { emoji: "👏", code: "clap" },
+  { emoji: "😂", code: "laugh" },
+  { emoji: "😢", code: "cry" },
+  { emoji: "🤯", code: "mind_blown" },
 ];
 
 const DropCard = ({ id, username, avatarEmoji = "🎤", audioUrl, createdAt, expiresAt, durationSeconds = 0, initialListenedCount = 0 }: DropCardProps) => {
@@ -174,7 +179,7 @@ const DropCard = ({ id, username, avatarEmoji = "🎤", audioUrl, createdAt, exp
   const handleEnded = () => {
     setIsPlaying(false);
     setProgress(0);
-    // No reseteamos hasCountedRef para evitar contar múltiples veces en la misma sesión/remontaje corto
+    hasCountedRef.current = false; // Permite volver a contar si lo escucha de nuevo
   };
 
   return (

@@ -69,7 +69,9 @@ const DropsWidget = () => {
     const handleTimeUpdate = () => {
         if (audioRef.current && playingId) {
             const { currentTime, duration } = audioRef.current;
-            const progress = (currentTime / (duration || 1)) * 100;
+            if (!duration || isNaN(duration)) return;
+
+            const progress = (currentTime / duration) * 100;
 
             if (progress >= 30 && !hasCountedRef.current[playingId]) {
                 hasCountedRef.current[playingId] = true;
@@ -77,6 +79,13 @@ const DropsWidget = () => {
                     .catch((err: any) => console.error("Error incrementing widget listener:", err));
             }
         }
+    };
+
+    const handleEnded = () => {
+        if (playingId) {
+            hasCountedRef.current[playingId] = false;
+        }
+        setPlayingId(null);
     };
 
     const toggle = (drop: any) => {
@@ -126,7 +135,7 @@ const DropsWidget = () => {
                     </div>
                 </div>
             ))}
-            <audio ref={audioRef} onEnded={() => setPlayingId(null)} onTimeUpdate={handleTimeUpdate} />
+            <audio ref={audioRef} onEnded={handleEnded} onTimeUpdate={handleTimeUpdate} />
         </div>
     );
 };
