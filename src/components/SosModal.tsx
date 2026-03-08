@@ -15,7 +15,7 @@ const SosModal = ({ isOpen, onClose, onTriggerAction }: SosModalProps) => {
     const [countdown, setCountdown] = useState(30);
     const [pin, setPin] = useState("");
     const { toast } = useToast();
-    const CORRECT_PIN = "1111"; // Placeholder for Phase 2 demo
+    const CORRECT_PIN = localStorage.getItem("thespot_sos_pin") || "1111";
 
     useEffect(() => {
         let timer: NodeJS.Timeout;

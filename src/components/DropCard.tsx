@@ -1,9 +1,11 @@
-import { useState, useRef } from "react";
-import { Play, Pause, Mic } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Play, Pause } from "lucide-react";
 import { motion } from "framer-motion";
 import CountdownRing from "./CountdownRing";
+import { supabase } from "@/integrations/supabase/client";
 
 interface DropCardProps {
+  id: string;
   username: string;
   avatarEmoji?: string;
   audioUrl: string;
@@ -11,10 +13,94 @@ interface DropCardProps {
   expiresAt: Date;
 }
 
-const DropCard = ({ username, avatarEmoji = "🎤", audioUrl, createdAt, expiresAt }: DropCardProps) => {
+const REACTIONS = [
+  { emoji: "🔥", code: "fire" },
+  { emoji: "❤️", code: "heart" },
+  { emoji: "👏", code: "clap" },
+];
+
+const DropCard = ({ id, username, avatarEmoji = "🎤", audioUrl, createdAt, expiresAt }: DropCardProps) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [reactionCounts, setReactionCounts] = useState<Record<string, number>>({ fire: 0, heart: 0, clap: 0 });
+  const [userReaction, setUserReaction] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) setUserId(user.id);
+    });
+    loadReactions();
+  }, [id]);
+
+  const loadReactions = async () => {
+    try {
+      const { data } = await (supabase as any)
+        .from('reactions')
+        .select('emoji_code, user_id')
+        .eq('drop_id', id)
+        .eq('type', 'emoji');
+
+      if (!data) return;
+
+      const counts: Record<string, number> = { fire: 0, heart: 0, clap: 0 };
+      data.forEach((r: any) => {
+        if (r.emoji_code && counts[r.emoji_code] !== undefined) {
+          counts[r.emoji_code]++;
+        }
+      });
+      setReactionCounts(counts);
+
+      // Detect current user's reaction
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const mine = data.find((r: any) => r.user_id === user.id);
+        setUserReaction(mine?.emoji_code || null);
+      }
+    } catch (e) {
+      console.warn("Error loading reactions:", e);
+    }
+  };
+
+  const handleReaction = async (code: string) => {
+    if (!userId) return;
+
+    const isRemoving = userReaction === code;
+
+    // Optimistic update
+    setReactionCounts((prev) => ({
+      ...prev,
+      [code]: isRemoving ? Math.max(0, prev[code] - 1) : prev[code] + 1,
+      ...(userReaction && userReaction !== code
+        ? { [userReaction]: Math.max(0, prev[userReaction] - 1) }
+        : {}),
+    }));
+    setUserReaction(isRemoving ? null : code);
+
+    try {
+      // Remove previous reaction
+      if (userReaction) {
+        await (supabase as any)
+          .from('reactions')
+          .delete()
+          .eq('drop_id', id)
+          .eq('user_id', userId);
+      }
+      // Insert new reaction if not removing
+      if (!isRemoving) {
+        await (supabase as any).from('reactions').insert({
+          drop_id: id,
+          user_id: userId,
+          type: 'emoji',
+          emoji_code: code,
+        });
+      }
+    } catch (e) {
+      console.warn("Reaction error:", e);
+      loadReactions(); // Revert optimistic update on error
+    }
+  };
 
   const togglePlay = () => {
     if (!audioRef.current || !audioUrl) return;
@@ -68,14 +154,16 @@ const DropCard = ({ username, avatarEmoji = "🎤", audioUrl, createdAt, expires
         </button>
 
         {/* Waveform Progress Visualizer */}
-        <div className="relative flex h-8 flex-1 items-center overflow-hidden rounded-md bg-muted/40 cursor-pointer"
+        <div
+          className="relative flex h-8 flex-1 items-center overflow-hidden rounded-md bg-muted/40 cursor-pointer"
           onClick={(e) => {
             if (!audioRef.current || !audioRef.current.duration) return;
             const rect = e.currentTarget.getBoundingClientRect();
             const percentage = (e.clientX - rect.left) / rect.width;
             audioRef.current.currentTime = percentage * audioRef.current.duration;
             setProgress(percentage * 100);
-          }}>
+          }}
+        >
           <div
             className="absolute left-0 top-0 h-full bg-primary/20"
             style={{ width: `${progress}%`, transition: isPlaying ? 'width 0.1s linear' : 'none' }}
@@ -84,17 +172,41 @@ const DropCard = ({ username, avatarEmoji = "🎤", audioUrl, createdAt, expires
             {Array.from({ length: 30 }).map((_, i) => (
               <div
                 key={i}
-                className={`w-[3px] rounded-full transition-colors duration-300 ${progress > (i / 30) * 100 ? "bg-spot-lime" : "bg-white/10"
-                  }`}
+                className={`w-[3px] rounded-full transition-colors duration-300 ${
+                  progress > (i / 30) * 100 ? "bg-spot-lime" : "bg-white/10"
+                }`}
                 style={{ height: `${20 + Math.sin(i) * 10}px` }}
               />
             ))}
           </div>
         </div>
+      </div>
 
-        <button className="flex h-8 w-8 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:border-primary hover:text-primary">
-          <Mic size={14} />
-        </button>
+      {/* Emoji Reactions */}
+      <div className="mt-3 flex items-center gap-2">
+        {REACTIONS.map(({ emoji, code }) => {
+          const isActive = userReaction === code;
+          const count = reactionCounts[code] || 0;
+          return (
+            <motion.button
+              key={code}
+              whileTap={{ scale: 0.85 }}
+              onClick={() => handleReaction(code)}
+              className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs transition-all ${
+                isActive
+                  ? "bg-spot-lime/20 border border-spot-lime/60 text-spot-lime"
+                  : "bg-white/5 border border-white/10 text-muted-foreground hover:border-white/30"
+              }`}
+            >
+              <span className="text-sm">{emoji}</span>
+              {count > 0 && (
+                <span className={`font-mono text-[10px] ${isActive ? "text-spot-lime" : "text-muted-foreground"}`}>
+                  {count}
+                </span>
+              )}
+            </motion.button>
+          );
+        })}
       </div>
 
       <audio

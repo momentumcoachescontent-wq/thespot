@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Settings, Shield, LogOut, Plus, Trash2, Phone, User, X } from "lucide-react";
+import { Shield, LogOut, Plus, Trash2, Phone, User, X, Pencil, Check, Lock } from "lucide-react";
 import BottomNav from "@/components/BottomNav";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -13,6 +13,8 @@ interface SOSContact {
   relationship: string;
 }
 
+const SOS_PIN_KEY = "thespot_sos_pin";
+
 const ProfilePage = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -21,11 +23,31 @@ const ProfilePage = () => {
   const [newContact, setNewContact] = useState({ name: "", phone: "", relationship: "" });
   const [isLoading, setIsLoading] = useState(true);
   const [userEmail, setUserEmail] = useState<string>("");
+  const [username, setUsername] = useState<string>("");
+  const [isEditingUsername, setIsEditingUsername] = useState(false);
+  const [usernameInput, setUsernameInput] = useState("");
+  const [isSavingUsername, setIsSavingUsername] = useState(false);
+
+  // SOS PIN
+  const [sosPin, setSosPin] = useState<string>(() => localStorage.getItem(SOS_PIN_KEY) || "1111");
+  const [isEditingPin, setIsEditingPin] = useState(false);
+  const [pinInput, setPinInput] = useState("");
 
   useEffect(() => {
     fetchContacts();
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user?.email) setUserEmail(user.email);
+      if (user) {
+        (supabase as any).from('profiles').select('username').eq('id', user.id).single().then(({ data }: any) => {
+          if (data?.username) {
+            setUsername(data.username);
+            setUsernameInput(data.username);
+          } else {
+            const fallback = user.email?.split("@")[0] || "usuario";
+            setUsernameInput(fallback);
+          }
+        });
+      }
     });
   }, []);
 
@@ -43,6 +65,39 @@ const ProfilePage = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleSaveUsername = async () => {
+    if (!usernameInput.trim()) return;
+    setIsSavingUsername(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { error } = await (supabase as any)
+        .from('profiles')
+        .update({ username: usernameInput.trim().toLowerCase() })
+        .eq('id', user.id);
+      if (error) throw error;
+      setUsername(usernameInput.trim().toLowerCase());
+      setIsEditingUsername(false);
+      toast({ title: "Usuario actualizado", description: `Tu handle es ahora @${usernameInput.trim().toLowerCase()}` });
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message || "No se pudo guardar el usuario.", variant: "destructive" });
+    } finally {
+      setIsSavingUsername(false);
+    }
+  };
+
+  const handleSavePin = () => {
+    if (pinInput.length !== 4 || !/^\d{4}$/.test(pinInput)) {
+      toast({ title: "PIN inválido", description: "El PIN debe ser de 4 dígitos numéricos.", variant: "destructive" });
+      return;
+    }
+    localStorage.setItem(SOS_PIN_KEY, pinInput);
+    setSosPin(pinInput);
+    setIsEditingPin(false);
+    setPinInput("");
+    toast({ title: "PIN SOS guardado", description: "Úsalo para cancelar una alerta de emergencia." });
   };
 
   const handleAddContact = async (e: React.FormEvent) => {
@@ -84,36 +139,119 @@ const ProfilePage = () => {
     navigate("/");
   };
 
+  const displayName = username || (userEmail ? userEmail.split("@")[0] : "Mi Spot");
+
   return (
     <div className="min-h-screen bg-background pb-20">
       <div className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-xl">
         <div className="mx-auto flex max-w-md items-center justify-between px-4 py-3">
           <h1 className="font-bebas text-2xl tracking-wider text-foreground">PERFIL</h1>
-          <button className="text-muted-foreground hover:text-foreground">
-            <Settings size={20} />
-          </button>
         </div>
       </div>
 
       <div className="mx-auto max-w-md px-4 py-8">
-        {/* Avatar */}
+        {/* Avatar + Username */}
         <div className="flex flex-col items-center gap-3">
           <div className="flex h-20 w-20 items-center justify-center rounded-full bg-spot-lime text-4xl shadow-[0_0_20px_rgba(200,255,0,0.3)]">
             🎤
           </div>
-          <div className="text-center">
-            <h2 className="font-bebas text-2xl text-foreground">
-              {userEmail ? userEmail.split("@")[0] : "Mi Spot"}
-            </h2>
+          <div className="flex flex-col items-center gap-1">
+            {isEditingUsername ? (
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-xs text-muted-foreground">@</span>
+                <input
+                  autoFocus
+                  value={usernameInput}
+                  onChange={e => setUsernameInput(e.target.value.replace(/\s/g, "").toLowerCase())}
+                  className="w-36 rounded-lg border border-spot-lime/50 bg-black/40 px-2 py-1 font-bebas text-lg text-foreground focus:outline-none focus:ring-1 focus:ring-spot-lime"
+                  maxLength={20}
+                />
+                <button
+                  onClick={handleSaveUsername}
+                  disabled={isSavingUsername}
+                  className="rounded-full bg-spot-lime p-1.5 text-black"
+                >
+                  <Check size={14} />
+                </button>
+                <button
+                  onClick={() => setIsEditingUsername(false)}
+                  className="rounded-full bg-white/10 p-1.5 text-muted-foreground"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <h2 className="font-bebas text-2xl text-foreground">@{displayName}</h2>
+                <button
+                  onClick={() => setIsEditingUsername(true)}
+                  className="text-muted-foreground/50 hover:text-spot-lime transition-colors"
+                >
+                  <Pencil size={13} />
+                </button>
+              </div>
+            )}
             {userEmail && (
-              <p className="font-mono text-[9px] text-muted-foreground/60">{userEmail}</p>
+              <p className="font-mono text-[9px] text-muted-foreground/50">{userEmail}</p>
             )}
             <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground mt-1">Tu voz tiene poder.</p>
           </div>
         </div>
 
+        {/* SOS PIN Section */}
+        <div className="mt-8 rounded-2xl border border-spot-red/20 bg-spot-red/5 p-4">
+          <div className="flex items-center justify-between">
+            <h3 className="flex items-center gap-2 font-bebas text-lg text-foreground">
+              <Lock size={16} className="text-spot-red" />
+              PIN DE CANCELACIÓN SOS
+            </h3>
+            <button
+              onClick={() => { setIsEditingPin(!isEditingPin); setPinInput(""); }}
+              className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-spot-lime transition-colors"
+            >
+              {isEditingPin ? "Cancelar" : "Cambiar"}
+            </button>
+          </div>
+          <p className="mt-1 font-mono text-[10px] text-muted-foreground/60 uppercase tracking-wider">
+            Ingresa este PIN para cancelar una alerta SOS activa
+          </p>
+          <AnimatePresence>
+            {isEditingPin ? (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                className="mt-3 flex items-center gap-2 overflow-hidden"
+              >
+                <input
+                  type="number"
+                  maxLength={4}
+                  placeholder="Nuevo PIN (4 dígitos)"
+                  value={pinInput}
+                  onChange={e => setPinInput(e.target.value.slice(0, 4))}
+                  className="flex-1 rounded-lg border border-spot-red/30 bg-black/40 px-3 py-2 font-mono text-sm text-center tracking-widest focus:outline-none focus:ring-1 focus:ring-spot-red"
+                />
+                <button
+                  onClick={handleSavePin}
+                  className="rounded-lg bg-spot-red px-4 py-2 font-bebas text-sm text-white"
+                >
+                  GUARDAR
+                </button>
+              </motion.div>
+            ) : (
+              <div className="mt-2 flex gap-2">
+                {["·", "·", "·", "·"].map((dot, i) => (
+                  <div key={i} className="flex h-8 w-8 items-center justify-center rounded-lg border border-spot-red/20 bg-black/20 font-mono text-lg text-spot-red">
+                    {dot}
+                  </div>
+                ))}
+              </div>
+            )}
+          </AnimatePresence>
+        </div>
+
         {/* SOS Contacts Section */}
-        <div className="mt-10 space-y-4">
+        <div className="mt-6 space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="flex items-center gap-2 font-bebas text-xl text-foreground">
               <Shield size={18} className="text-spot-lime" />
