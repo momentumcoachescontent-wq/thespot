@@ -56,6 +56,14 @@
     @apply bg-background text-foreground font-syne antialiased;
     position: relative;
     overflow-x: hidden;
+    -webkit-text-size-adjust: 100%;
+    /* TWA / iOS safe areas */
+    padding-top: env(safe-area-inset-top);
+  }
+
+  /* TWA bottom nav safe area */
+  .safe-bottom {
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
   }
 
   /* Grain Texture */
