@@ -387,7 +387,7 @@ const ProfilePage = () => {
         <div className="mt-12 space-y-3 border-t border-white/5 pt-8">
           <div className="flex items-center justify-between px-2">
             <span className="font-mono text-[9px] uppercase tracking-[3px] text-muted-foreground">CUENTA DE ACCESO</span>
-            <span className="font-mono text-[9px] text-zinc-600 uppercase">{profile?.role === 'admin' ? 'ADMINISTRADOR' : 'ESTUDIANTE'}</span>
+            <span className="font-mono text-[9px] text-zinc-600 uppercase">{profile?.role === 'admin' ? 'ARQUITECTO' : 'ESTUDIANTE'}</span>
           </div>
           <div className="rounded-2xl border border-white/5 bg-black/20 p-5 flex items-center justify-between">
             <span className="font-mono text-[11px] text-zinc-300">{profile?.university_domain || "spot.edu"}</span>
