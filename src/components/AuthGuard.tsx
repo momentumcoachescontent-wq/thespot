@@ -1,28 +1,9 @@
-import { useEffect, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
-    const [session, setSession] = useState<any>(null);
-    const [loading, setLoading] = useState(true);
+    const { session, loading } = useAuth();
     const location = useLocation();
-
-    useEffect(() => {
-        // Verificar sesión inicial
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            setSession(session);
-            setLoading(false);
-        });
-
-        // Escuchar cambios de autenticación
-        const {
-            data: { subscription },
-        } = supabase.auth.onAuthStateChange((_event, session) => {
-            setSession(session);
-        });
-
-        return () => subscription.unsubscribe();
-    }, []);
 
     if (loading) {
         return (
@@ -33,7 +14,6 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
     }
 
     if (!session) {
-        // Redirigir al landing si no hay sesión, guardando a dónde querían ir
         return <Navigate to="/" state={{ from: location }} replace />;
     }
 

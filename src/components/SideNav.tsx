@@ -4,15 +4,15 @@ import { Mic, MapPin, Headphones, CalendarDays, User, LayoutDashboard, Shield, A
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 
-const ADMIN_EMAIL = "momentumcoaches.content@gmail.com";
+import { useAuth } from "@/contexts/AuthContext";
 
 const NAV_ITEMS = [
-  { path: "/home",    icon: LayoutDashboard, label: "Dashboard" },
-  { path: "/feed",    icon: Mic,             label: "Canal" },
-  { path: "/map",     icon: MapPin,          label: "Mapa" },
-  { path: "/podcast", icon: Headphones,      label: "Podcast" },
-  { path: "/events",  icon: CalendarDays,    label: "Eventos" },
-  { path: "/profile", icon: User,            label: "Perfil" },
+  { path: "/home", icon: LayoutDashboard, label: "Dashboard" },
+  { path: "/feed", icon: Mic, label: "Canal" },
+  { path: "/map", icon: MapPin, label: "Mapa" },
+  { path: "/podcast", icon: Headphones, label: "Podcast" },
+  { path: "/events", icon: CalendarDays, label: "Eventos" },
+  { path: "/profile", icon: User, label: "Perfil" },
 ];
 
 interface SideNavProps {
@@ -22,25 +22,14 @@ interface SideNavProps {
 const SideNav = ({ onSosClick }: SideNavProps) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const [userEmail, setUserEmail] = useState("");
-  const [username, setUsername] = useState("");
-  const [isAdmin, setIsAdmin] = useState(false);
+  const { profile, user, isAdmin, signOut } = useAuth();
 
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) return;
-      setUserEmail(user.email || "");
-      setIsAdmin(user.email === ADMIN_EMAIL);
-      (supabase as any).from("profiles").select("username").eq("id", user.id).single().then(({ data }: any) => {
-        if (data?.username) setUsername(data.username);
-      });
-    });
-  }, []);
-
+  const userEmail = user?.email || "";
+  const username = profile?.username || "";
   const displayName = username || userEmail.split("@")[0] || "Usuario";
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
+    await signOut();
     navigate("/");
   };
 
@@ -65,11 +54,10 @@ const SideNav = ({ onSosClick }: SideNavProps) => {
             <button
               key={item.path}
               onClick={() => navigate(item.path)}
-              className={`group relative flex w-full items-center gap-3 rounded-xl px-2.5 py-2.5 transition-all ${
-                isActive
-                  ? "bg-spot-lime/10 text-spot-lime"
-                  : "text-muted-foreground hover:bg-white/5 hover:text-foreground"
-              }`}
+              className={`group relative flex w-full items-center gap-3 rounded-xl px-2.5 py-2.5 transition-all ${isActive
+                ? "bg-spot-lime/10 text-spot-lime"
+                : "text-muted-foreground hover:bg-white/5 hover:text-foreground"
+                }`}
             >
               {isActive && (
                 <motion.div
@@ -93,11 +81,10 @@ const SideNav = ({ onSosClick }: SideNavProps) => {
         {isAdmin && (
           <button
             onClick={() => navigate("/admin")}
-            className={`group relative flex w-full items-center gap-3 rounded-xl px-2.5 py-2.5 transition-all ${
-              location.pathname === "/admin"
-                ? "bg-amber-400/10 text-amber-400"
-                : "text-muted-foreground hover:bg-white/5 hover:text-amber-400/70"
-            }`}
+            className={`group relative flex w-full items-center gap-3 rounded-xl px-2.5 py-2.5 transition-all ${location.pathname === "/admin"
+              ? "bg-amber-400/10 text-amber-400"
+              : "text-muted-foreground hover:bg-white/5 hover:text-amber-400/70"
+              }`}
           >
             <Crown size={19} className="shrink-0" />
             <span className="hidden lg:block font-mono text-[11px] uppercase tracking-widest">Admin</span>

@@ -8,7 +8,10 @@ import VoiceRecorder from "@/components/VoiceRecorder";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
+import { useAuth } from "@/contexts/AuthContext";
+
 const FeedPage = () => {
+  const { user, profile } = useAuth();
   const [showRecorder, setShowRecorder] = useState(false);
   const [drops, setDrops] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -20,10 +23,8 @@ const FeedPage = () => {
   const fetchDrops = async () => {
     try {
       setLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setLoading(false); return; }
 
-      const { data: profile } = await (supabase as any).from("profiles").select("university_domain").eq("id", user.id).single();
       const domain = profile?.university_domain || "demo.edu";
 
       const { data: realDrops, error } = await (supabase as any)
@@ -66,14 +67,13 @@ const FeedPage = () => {
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "drops" }, () => { fetchDrops(); })
       .subscribe();
     return () => { channel.unsubscribe(); };
-  }, []);
+  }, [user]); // Re-ejecutar si cambia el usuario
 
   const handleRecorded = async (blob: Blob) => {
     try {
       setShowRecorder(false);
       toast({ title: "Subiendo drop...", description: "Transformando miedo en acción." });
 
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) { toast({ title: "Sin sesión", description: "Inicia sesión para grabar.", variant: "destructive" }); return; }
 
       let userLat = 0, userLng = 0;
@@ -83,14 +83,19 @@ const FeedPage = () => {
         );
         userLat = position.coords.latitude;
         userLng = position.coords.longitude;
-      } catch { /* no GPS */ }
+      } catch (geoError) {
+        console.warn("Geolocation failed, using default location.", geoError);
+        toast({
+          title: "Sin ubicación GPS",
+          description: "Tu drop se asociará al campus general."
+        });
+      }
 
       const fileName = `${user.id}-${Date.now()}.webm`;
       const { error: uploadError } = await supabase.storage.from("drops").upload(fileName, blob, { contentType: "audio/webm" });
       if (uploadError) throw uploadError;
 
       const { data: { publicUrl } } = supabase.storage.from("drops").getPublicUrl(fileName);
-      const { data: profile } = await (supabase as any).from("profiles").select("university_domain").eq("id", user.id).single();
       const domain = profile?.university_domain || "demo.edu";
 
       let { data: spots } = await (supabase as any).from("spots").select("id").eq("university_domain", domain).limit(1);

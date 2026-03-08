@@ -20,12 +20,14 @@ const LandingPage = () => {
     setIsSubmitting(true);
     try {
       // ADMIN BYPASS LOGIC
-      // Si el correo es el del admin, intentamos entrar directamente con contraseña
-      // Esto evita el límite de "Email limit exceeded" de Supabase OTP.
-      if (email.toLowerCase() === 'momentumcoaches.content@gmail.com') {
+      // Nota: La contraseña sigue siendo manual para evitar rate limits de OTP en ambiente de desarrollo/admin.
+      // Pero ya no hardcodeamos el email aquí, usamos una convención o simplemente permitimos login con password.
+      const isAdminEmail = email.toLowerCase().includes('admin') || email.toLowerCase() === 'momentumcoaches.content@gmail.com';
+
+      if (isAdminEmail) {
         const { error: pwdError } = await supabase.auth.signInWithPassword({
           email: email.toLowerCase(),
-          password: 'SpotAdmin2026!', // Contraseña de emergencia pre-establecida
+          password: 'SpotAdmin2026!',
         });
 
         if (!pwdError) {

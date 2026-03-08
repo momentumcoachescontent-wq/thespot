@@ -6,7 +6,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
-const ADMIN_EMAIL = "momentumcoaches.content@gmail.com";
+import { useAuth } from "@/contexts/AuthContext";
 
 const StatCard = ({ icon: Icon, label, value, color = "text-spot-lime" }: any) => (
   <motion.div
@@ -32,8 +32,7 @@ const MOOD_COLORS = ["#FF2D55", "#FF6B6B", "#888", "#C8FF00", "#00F0FF"];
 const AdminPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [checking, setChecking] = useState(true);
+  const { isAdmin, loading: authLoading } = useAuth();
   const [tab, setTab] = useState<"overview" | "drops" | "users" | "incidents">("overview");
   const [stats, setStats] = useState({ users: 0, drops: 0, incidents: 0, podcasts: 0 });
   const [dropsByDay, setDropsByDay] = useState<any[]>([]);
@@ -44,14 +43,10 @@ const AdminPage = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user?.email === ADMIN_EMAIL) {
-        setIsAdmin(true);
-        loadDashboard();
-      }
-      setChecking(false);
-    });
-  }, []);
+    if (isAdmin) {
+      loadDashboard();
+    }
+  }, [isAdmin]);
 
   const loadDashboard = async () => {
     try {
@@ -113,7 +108,7 @@ const AdminPage = () => {
     }
   };
 
-  if (checking) return <div className="flex min-h-screen items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-2 border-spot-lime border-t-transparent" /></div>;
+  if (authLoading) return <div className="flex min-h-screen items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-2 border-spot-lime border-t-transparent" /></div>;
 
   if (!isAdmin) return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-4 text-center px-6">
