@@ -135,31 +135,33 @@ const DropCard = ({ id, username, avatarEmoji = "🎤", audioUrl, createdAt, exp
     setUserReaction(isRemoving ? null : code);
 
     try {
-      // 1. Always clear previous reaction for this user and drop
-      const { error: deleteError } = await (supabase as any)
-        .from('reactions')
-        .delete()
-        .eq('drop_id', id)
-        .eq('user_id', userId);
-
-      if (deleteError) throw deleteError;
-
-      // 2. If not removing, insert the new one
-      if (!isRemoving) {
-        const { error: insertError } = await (supabase as any)
+      if (isRemoving) {
+        const { error: deleteError } = await (supabase as any)
           .from('reactions')
-          .insert({
+          .delete()
+          .eq('drop_id', id)
+          .eq('user_id', userId)
+          .eq('type', 'emoji');
+
+        if (deleteError) throw deleteError;
+      } else {
+        // Use upsert to handle both new reactions and changing reactions in one robust call
+        const { error: upsertError } = await (supabase as any)
+          .from('reactions')
+          .upsert({
             drop_id: id,
             user_id: userId,
             type: 'emoji',
             emoji_code: code,
+          }, {
+            onConflict: 'drop_id,user_id,type'
           });
 
-        if (insertError) throw insertError;
+        if (upsertError) throw upsertError;
       }
     } catch (e: any) {
       console.warn("Reaction error:", e);
-      // Fallback: reload state from DB to be safe if DB unique constraint failed or other error
+      // Fallback: reload state from DB to be safe
       loadReactions();
     }
   };
