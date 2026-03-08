@@ -45,7 +45,7 @@ const SpotCard = ({ name, description, campus, memberCount, isJoined, onJoin, on
                 : "bg-primary text-primary-foreground hover:shadow-glow"
             }`}
           >
-            {isJoined ? "Joined" : "Join"}
+            {isJoined ? "Unido" : "Unirse"}
           </button>
         )}
       </div>

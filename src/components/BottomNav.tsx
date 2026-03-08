@@ -3,10 +3,10 @@ import { Mic, Users, Smile, User } from "lucide-react";
 import { motion } from "framer-motion";
 
 const tabs = [
-  { path: "/feed", icon: Mic, label: "Feed" },
+  { path: "/feed", icon: Mic, label: "Canal" },
   { path: "/spots", icon: Users, label: "Spots" },
-  { path: "/mood", icon: Smile, label: "Mood" },
-  { path: "/profile", icon: User, label: "Profile" },
+  { path: "/mood", icon: Smile, label: "Estado" },
+  { path: "/profile", icon: User, label: "Perfil" },
 ];
 
 const BottomNav = () => {

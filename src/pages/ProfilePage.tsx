@@ -20,9 +20,13 @@ const ProfilePage = () => {
   const [isAddingMode, setIsAddingMode] = useState(false);
   const [newContact, setNewContact] = useState({ name: "", phone: "", relationship: "" });
   const [isLoading, setIsLoading] = useState(true);
+  const [userEmail, setUserEmail] = useState<string>("");
 
   useEffect(() => {
     fetchContacts();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user?.email) setUserEmail(user.email);
+    });
   }, []);
 
   const fetchContacts = async () => {
@@ -98,8 +102,13 @@ const ProfilePage = () => {
             🎤
           </div>
           <div className="text-center">
-            <h2 className="font-bebas text-2xl text-foreground">@usuario_spot</h2>
-            <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Tu voz tiene poder.</p>
+            <h2 className="font-bebas text-2xl text-foreground">
+              {userEmail ? userEmail.split("@")[0] : "Mi Spot"}
+            </h2>
+            {userEmail && (
+              <p className="font-mono text-[9px] text-muted-foreground/60">{userEmail}</p>
+            )}
+            <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground mt-1">Tu voz tiene poder.</p>
           </div>
         </div>
 
