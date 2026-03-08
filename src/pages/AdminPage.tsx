@@ -41,6 +41,7 @@ const AdminPage = () => {
   const [moodDist, setMoodDist] = useState<any[]>([]);
   const [topUsers, setTopUsers] = useState<any[]>([]);
   const [incidents, setIncidents] = useState<any[]>([]);
+  const [flaggedDrops, setFlaggedDrops] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -102,6 +103,15 @@ const AdminPage = () => {
       moodData.forEach((m: any) => { if (m.mood in moodCounts) moodCounts[m.mood]++; });
       setMoodDist(Object.entries(moodCounts).map(([mood, count]) => ({ name: MOOD_LABELS[Number(mood)], value: count })).filter(m => m.value > 0));
 
+      // Moderation queue
+      const { data: flaggedData } = await (supabase as any)
+        .from('drops')
+        .select('id, audio_url, created_at, profiles:author_id(username)')
+        .eq('is_flagged', true)
+        .order('created_at', { ascending: false });
+
+      setFlaggedDrops(flaggedData || []);
+
     } catch (e) {
       console.error("Dashboard error:", e);
     } finally {
@@ -131,8 +141,8 @@ const AdminPage = () => {
               <ArrowLeft size={20} />
             </button>
             <div>
-              <h1 className="font-bebas text-2xl tracking-wider text-spot-lime">ADMIN DASHBOARD</h1>
-              <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">The Spot — Panel de control</p>
+              <h1 className="font-bebas text-2xl tracking-wider text-spot-lime">PORTAL DEL ARQUITECTO</h1>
+              <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">The Spot — Configuración Maestra</p>
             </div>
           </div>
           <Crown size={20} className="text-amber-400" />
@@ -315,6 +325,66 @@ const AdminPage = () => {
                       placeholder="Ej: Bloquear contenido violento o palabras de odio..."
                     />
                   </div>
+                </div>
+
+                {/* Moderation Queue */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-bebas text-xl text-foreground">Cola de Moderación ({flaggedDrops.length})</h3>
+                    {flaggedDrops.length > 0 && (
+                      <span className="animate-pulse rounded-full bg-spot-red px-2 py-0.5 font-mono text-[8px] uppercase text-white">Pendiente</span>
+                    )}
+                  </div>
+
+                  {flaggedDrops.length === 0 ? (
+                    <div className="rounded-xl border border-border bg-card/50 p-8 text-center">
+                      <Shield size={24} className="mx-auto mb-2 text-muted-foreground opacity-20" />
+                      <p className="font-mono text-[10px] text-muted-foreground uppercase tracking-widest">Sin drops para revisión</p>
+                    </div>
+                  ) : (
+                    <div className="grid gap-3">
+                      {flaggedDrops.map((drop) => (
+                        <div key={drop.id} className="group relative flex flex-col gap-3 rounded-2xl border border-spot-red/20 bg-card p-4 transition-all hover:border-spot-red/40 hover:bg-spot-red/5">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <AlertTriangle size={14} className="text-spot-red" />
+                              <span className="font-bebas text-sm text-foreground">@{drop.profiles?.username || "anónimo"}</span>
+                              <span className="font-mono text-[9px] text-muted-foreground opacity-60">
+                                {new Date(drop.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={async () => {
+                                  const { error } = await (supabase as any).from('drops').update({ is_flagged: false }).eq('id', drop.id);
+                                  if (!error) {
+                                    setFlaggedDrops(prev => prev.filter(d => d.id !== drop.id));
+                                    toast({ title: "Drop aprobado ✅" });
+                                  }
+                                }}
+                                className="rounded-lg bg-spot-lime px-3 py-1 font-bebas text-[11px] text-black shadow-lg shadow-spot-lime/20 transition-all hover:scale-105"
+                              >
+                                APROBAR
+                              </button>
+                              <button
+                                onClick={async () => {
+                                  const { error } = await (supabase as any).from('drops').delete().eq('id', drop.id);
+                                  if (!error) {
+                                    setFlaggedDrops(prev => prev.filter(d => d.id !== drop.id));
+                                    toast({ title: "Drop eliminado" });
+                                  }
+                                }}
+                                className="rounded-lg bg-muted px-3 py-1 font-bebas text-[11px] text-muted-foreground hover:bg-spot-red hover:text-white transition-all"
+                              >
+                                RECHAZAR
+                              </button>
+                            </div>
+                          </div>
+                          <audio controls src={drop.audio_url} className="h-8 w-full brightness-90 saturate-50 hover:brightness-100 transition-all" />
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div className="rounded-xl border border-spot-cyan/20 bg-spot-cyan/5 p-4">

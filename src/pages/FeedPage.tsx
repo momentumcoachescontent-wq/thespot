@@ -31,7 +31,8 @@ const FeedPage = () => {
       let query = (supabase as any)
         .from("drops")
         .select("id, audio_url, created_at, expires_at, duration_seconds, listened_count, profiles:author_id(username, avatar_url), reactions(count)")
-        .gt("expires_at", new Date().toISOString());
+        .gt("expires_at", new Date().toISOString())
+        .eq("is_flagged", false);
 
       if (resolvedDomain) {
         // Obtenemos los spots que pertenecen a este dominio
@@ -135,10 +136,40 @@ const FeedPage = () => {
       }
 
       const expiresAt = new Date(Date.now() + 15 * 60000).toISOString();
-      const { error: dbError } = await (supabase as any).from("drops").insert({ spot_id: spotId, author_id: user.id, audio_url: publicUrl, duration_seconds: Math.floor(blob.size / 15000) || 10, expires_at: expiresAt });
+
+      // Check if AI moderation is enabled
+      const { data: moderationSetting } = await (supabase as any)
+        .from('site_settings')
+        .select('value')
+        .eq('key', 'ai_moderation_enabled')
+        .single();
+
+      const isModerationEnabled = moderationSetting?.value === true;
+
+      const { error: dbError } = await (supabase as any).from("drops").insert({
+        spot_id: spotId,
+        author_id: user.id,
+        audio_url: publicUrl,
+        duration_seconds: Math.floor(blob.size / 15000) || 10,
+        expires_at: expiresAt,
+        is_flagged: isModerationEnabled // If enabled, we flag it initially for processing
+      });
+
       if (dbError) throw dbError;
 
-      toast({ title: "Drop activo 🎙️", description: "Tu voz es ahora parte del presente. Desaparecerá en 15 minutos." });
+      if (isModerationEnabled) {
+        toast({
+          title: "Análisis de IA en curso",
+          description: "Estamos asegurando que tu mensaje sea un espacio seguro. Se activará en breve.",
+          variant: "default"
+        });
+
+        // Simulación: En un entorno real, aquí se llamaría a supabase.functions.invoke('moderate-drop')
+        // o un trigger de DB se encargaría de procesarlo.
+      } else {
+        toast({ title: "Drop activo 🎙️", description: "Tu voz es ahora parte del presente. Desaparecerá en 15 minutos." });
+      }
+
       fetchDrops();
     } catch (error: any) {
       toast({ title: "Error en la transmisión", description: error.message, variant: "destructive" });

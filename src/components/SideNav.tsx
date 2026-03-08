@@ -87,7 +87,7 @@ const SideNav = ({ onSosClick }: SideNavProps) => {
               }`}
           >
             <Crown size={19} className="shrink-0" />
-            <span className="hidden lg:block font-mono text-[11px] uppercase tracking-widest">Admin</span>
+            <span className="hidden lg:block font-mono text-[11px] uppercase tracking-widest">Portal Arquitecto</span>
           </button>
         )}
       </nav>
