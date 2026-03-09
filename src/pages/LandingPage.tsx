@@ -263,4 +263,4 @@ const LandingPage = () => {
 };
 
 export default LandingPage;
-// Production Release v1.6.8 - Events RLS Hotfix (Allow global events without spot)
+// Production Release v1.6.9 - Backlog Fase 10 (Avatares y Analíticas Avanzadas)
