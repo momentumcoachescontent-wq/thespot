@@ -418,6 +418,29 @@ const AdminPage = () => {
                       <option value="gemini-1.5-flash-lite">Google (Gemini 1.5 Flash-Lite)</option>
                     </select>
                   </div>
+                  <div className="flex justify-end pt-1">
+                    <button
+                      onClick={async () => {
+                        toast({ title: "Iniciando prueba de conexión...", duration: 2000 });
+                        try {
+                          const { data, error } = await supabase.functions.invoke('test-ai', {
+                            body: { provider: settings.ai_model_provider }
+                          });
+                          if (error) throw error;
+                          if (data?.success) {
+                            toast({ title: "✅ Conexión Exitosa", description: data.message });
+                          } else {
+                            throw new Error(data?.error || "Error desconocido al contactar la IA");
+                          }
+                        } catch (err: any) {
+                          toast({ title: "❌ Fallo de Conexión", description: err.message || "Revisa las API Keys en Supabase", variant: "destructive" });
+                        }
+                      }}
+                      className="rounded-lg bg-spot-cyan/10 px-4 py-2 font-mono text-[10px] text-spot-cyan border border-spot-cyan/20 hover:bg-spot-cyan/20 hover:text-white transition-all uppercase tracking-widest flex items-center gap-2"
+                    >
+                      Probar Conexión a {settings.ai_model_provider?.split('-')[0].toUpperCase()}
+                    </button>
+                  </div>
 
                   <div className="h-px bg-border" />
 
