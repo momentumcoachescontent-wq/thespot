@@ -39,28 +39,89 @@ serve(async (req) => {
         const modelProvider = settings.ai_model_provider || 'openai'
         const customRules = settings.moderation_rules || ''
 
-        // 3. Ejecución del Veredicto IA (Simulación Parametrizada)
+        // 3. Obtener el archivo de audio para transcripción (Whisper)
+        const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+        if (!openAIApiKey) throw new Error("Falta OPENAI_API_KEY para transcripción Whisper");
+
+        console.log(`Descargando audio para transcribir: ${drop.audio_url}`);
+        const audioRes = await fetch(drop.audio_url);
+        if (!audioRes.ok) throw new Error(`Error descargando audio: ${audioRes.status}`);
+        const audioBlob = await audioRes.blob();
+
+        const formData = new FormData();
+        formData.append('file', audioBlob, 'audio.webm');
+        formData.append('model', 'whisper-1');
+
+        console.log("Llamando a OpenAI Whisper...");
+        const whisperRes = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${openAIApiKey}` },
+            body: formData
+        });
+
+        const whisperData = await whisperRes.json();
+        if (!whisperRes.ok) {
+            console.error("OpenAI Whisper Error:", whisperData);
+            throw new Error(`Fallo transcripción: ${whisperData.error?.message || "Error desconocido"}`);
+        }
+
+        const transcriptText = whisperData.text || "";
+        console.log(`Transcripción obtenida: "${transcriptText}"`);
+
+        // 4. Ejecución del Veredicto IA
         let isSafe = true;
 
-        try {
-            console.log(`Analizando drop ${drop_id} con ${modelProvider}. Reglas: ${customRules.substring(0, 20)}...`);
+        if (transcriptText.trim().length > 0) {
+            try {
+                console.log(`Analizando con ${modelProvider}. Reglas: ${customRules.substring(0, 50)}...`);
 
-            if (modelProvider.includes('openai') || modelProvider.includes('gpt')) {
-                const apiKey = Deno.env.get('OPENAI_API_KEY');
-                if (apiKey) {
-                    console.log(`Invocando ${modelProvider} para análisis...`);
-                    // Logic for real AI call would go here
+                const systemPrompt = `Eres un moderador estricto para una comunidad universitaria de voz. 
+Evalúa el siguiente texto extraído de un audio.
+Reglas de la comunidad: ${customRules || "No permitir violencia, odio o acoso."}
+Si el texto viola las reglas o es altamente inapropiado/peligroso, responde ÚNICAMENTE con la palabra: BLOCKED.
+De lo contrario, responde ÚNICAMENTE con la palabra: SAFE.
+Texto a evaluar: "${transcriptText}"`;
+
+                if (modelProvider.includes('openai') || modelProvider.includes('gpt')) {
+                    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${openAIApiKey}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            model: modelProvider === 'openai' ? 'gpt-4o' : modelProvider,
+                            messages: [{ role: 'system', content: systemPrompt }],
+                            temperature: 0.1,
+                            max_tokens: 5
+                        })
+                    });
+                    const data = await res.json();
+                    const verdict = data.choices?.[0]?.message?.content?.trim().toUpperCase() || 'SAFE';
+                    if (verdict.includes('BLOCKED')) isSafe = false;
+
+                } else if (modelProvider.includes('google') || modelProvider.includes('gemini')) {
+                    const googleApiKey = Deno.env.get('GOOGLE_API_KEY');
+                    if (googleApiKey) {
+                        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelProvider === 'google' ? 'gemini-1.5-pro' : modelProvider}:generateContent?key=${googleApiKey}`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                contents: [{ parts: [{ text: systemPrompt }] }]
+                            })
+                        });
+                        const data = await res.json();
+                        const verdict = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim().toUpperCase() || 'SAFE';
+                        if (verdict.includes('BLOCKED')) isSafe = false;
+                    }
                 }
-            } else if (modelProvider.includes('google') || modelProvider.includes('gemini')) {
-                const apiKey = Deno.env.get('GOOGLE_API_KEY');
-                if (apiKey) {
-                    console.log(`Invocando ${modelProvider} para análisis...`);
-                    // Logic for real AI call would go here
-                }
+            } catch (e) {
+                console.error("Error en llamada a IA para veredicto:", e);
+                isSafe = true; // Fallback a seguro para no bloquear injustamente si falla la IA
             }
-        } catch (e) {
-            console.error("Error en llamada a IA:", e);
-            isSafe = true; // Fallback a seguro para no bloquear injustamente sin revisión
+        } else {
+            console.log("Audio sin voz o inaudible, marcando como SAFE por defecto.");
+            isSafe = true;
         }
 
         if (isSafe && isAutoPilot) {

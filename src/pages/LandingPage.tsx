@@ -263,4 +263,4 @@ const LandingPage = () => {
 };
 
 export default LandingPage;
-// Production Release v1.5.5 - RLS Update, Drop Delete/Approve Fix & Test IA
+// Production Release v1.5.6 - Whisper Audio Transcription & AI Moderation Live
