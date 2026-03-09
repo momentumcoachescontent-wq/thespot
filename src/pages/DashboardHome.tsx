@@ -8,6 +8,7 @@ import DropsWidget from "@/components/dashboard/DropsWidget";
 import MapWidget from "@/components/dashboard/MapWidget";
 import TopUsersWidget from "@/components/dashboard/TopUsersWidget";
 import EventsWidget from "@/components/dashboard/EventsWidget";
+import TopUniversitiesWidget from "@/components/dashboard/TopUniversitiesWidget";
 import PodcastWidget from "@/components/dashboard/PodcastWidget";
 
 import UniversitySelector from "@/components/UniversitySelector";
@@ -31,12 +32,12 @@ const DashboardHome = () => {
         </div>
       </div>
 
-      {/* Grid responsivo */}
+      {/* Grid responsivo - Usamos 12 columnas para permitir spans finos (2/3, 1/2, 1/4) */}
       <div className="p-4 lg:p-6">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-12">
 
-          {/* Canal (drops) — span 2 cols on lg */}
-          <Widget title="CANAL EN VIVO" icon={Mic} linkTo="/feed" span="lg:col-span-2">
+          {/* Canal (drops) — 2/3 de 12 = 8 */}
+          <Widget title="CANAL EN VIVO" icon={Mic} linkTo="/feed" span="lg:col-span-8">
             <DropsWidget />
             <motion.button
               whileTap={{ scale: 0.95 }}
@@ -48,23 +49,28 @@ const DashboardHome = () => {
             </motion.button>
           </Widget>
 
-          {/* Mapa */}
-          <Widget title="MAPA DE SPOTS" icon={MapPin} linkTo="/map">
+          {/* Top Universidades — 1/3 de 12 = 4 */}
+          <Widget title="TOP INSTITUCIONES" icon={Trophy} linkTo="/feed" span="lg:col-span-4">
+            <TopUniversitiesWidget />
+          </Widget>
+
+          {/* Mapa — 1/2 de 12 = 6 */}
+          <Widget title="MAPA DE SPOTS" icon={MapPin} linkTo="/map" span="lg:col-span-6">
             <MapWidget />
           </Widget>
 
-          {/* Top Usuarios */}
-          <Widget title="TOP USUARIOS" icon={Trophy} linkTo="/feed">
+          {/* Top Usuarios — 1/4 de 12 = 3 */}
+          <Widget title="TOP USUARIOS" icon={Trophy} linkTo="/feed" span="lg:col-span-3">
             <TopUsersWidget />
           </Widget>
 
-          {/* Eventos */}
-          <Widget title="PRÓXIMOS EVENTOS" icon={CalendarDays} linkTo="/events">
+          {/* Eventos — 1/4 de 12 = 3 */}
+          <Widget title="PRÓXIMOS EVENTOS" icon={CalendarDays} linkTo="/events" span="lg:col-span-3">
             <EventsWidget />
           </Widget>
 
-          {/* Podcast */}
-          <Widget title="PODCAST" icon={Headphones} linkTo="/podcast">
+          {/* Podcast — Full width */}
+          <Widget title="PODCAST" icon={Headphones} linkTo="/podcast" span="lg:col-span-12">
             <PodcastWidget />
           </Widget>
         </div>
