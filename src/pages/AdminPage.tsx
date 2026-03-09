@@ -42,6 +42,7 @@ const AdminPage = () => {
   });
   const [stats, setStats] = useState({ users: 0, drops: 0, incidents: 0, podcasts: 0 });
   const [dropsByDay, setDropsByDay] = useState<any[]>([]);
+  const [engagementByDay, setEngagementByDay] = useState<any[]>([]);
   const [uniRanking, setUniRanking] = useState<any[]>([]);
   const [moodDist, setMoodDist] = useState<any[]>([]);
   const [topUsers, setTopUsers] = useState<any[]>([]);
@@ -59,12 +60,13 @@ const AdminPage = () => {
   const loadDashboard = async () => {
     try {
       // Parallel data loading
-      const [profilesRes, dropsRes, incidentsRes, moodRes, settingsRes] = await Promise.allSettled([
+      const [profilesRes, dropsRes, incidentsRes, moodRes, settingsRes, interactionsRes] = await Promise.allSettled([
         (supabase as any).from("profiles").select("id, flag_count", { count: "exact", head: true }),
         (supabase as any).from("drops").select("id, created_at, profiles:author_id(username, university_domain, flag_count)", { count: "exact" }).order("created_at", { ascending: false }).limit(200),
         (supabase as any).from("sos_incidents").select("*").order("created_at", { ascending: false }).limit(50),
         (supabase as any).from("mood_checkins").select("mood").limit(500),
-        (supabase as any).from("site_settings").select("*")
+        (supabase as any).from("site_settings").select("*"),
+        (supabase as any).from("interactions").select("id, drop_id, created_at").order("created_at", { ascending: false }).limit(1000)
       ]);
 
       const userCount = profilesRes.status === "fulfilled" ? (profilesRes.value.count || 0) : 0;
@@ -83,18 +85,32 @@ const AdminPage = () => {
       setStats({ users: userCount, drops: dropCount, incidents: incidentsData.length, podcasts: 0 });
       setIncidents(incidentsData.slice(0, 10));
 
-      // Drops by day (last 7 days)
-      const days: Record<string, number> = {};
+      // Drops & Engagement by day (last 7 days)
+      const daysDrops: Record<string, number> = {};
+      const daysEng: Record<string, number> = {};
       for (let i = 6; i >= 0; i--) {
         const d = new Date();
         d.setDate(d.getDate() - i);
-        days[d.toLocaleDateString("es-MX", { weekday: "short" })] = 0;
+        const label = d.toLocaleDateString("es-MX", { weekday: "short" });
+        daysDrops[label] = 0;
+        daysEng[label] = 0;
       }
       dropsData.forEach((d: any) => {
         const label = new Date(d.created_at).toLocaleDateString("es-MX", { weekday: "short" });
-        if (label in days) days[label]++;
+        if (label in daysDrops) daysDrops[label]++;
       });
-      setDropsByDay(Object.entries(days).map(([day, count]) => ({ day, drops: count })));
+
+      const interactionsData = interactionsRes.status === "fulfilled" ? (interactionsRes.value.data || []) : [];
+      interactionsData.forEach((i: any) => {
+        const label = new Date(i.created_at).toLocaleDateString("es-MX", { weekday: "short" });
+        if (label in daysEng) daysEng[label]++;
+      });
+
+      setDropsByDay(Object.entries(daysDrops).map(([day, count]) => ({ day, drops: count })));
+      setEngagementByDay(Object.entries(daysDrops).map(([day, count]) => {
+        const eng = daysEng[day] || 0;
+        return { day, rate: count === 0 ? 0 : Math.round((eng / count) * 100) / 100 };
+      }));
 
       // University ranking
       const uniCounts: Record<string, number> = {};
@@ -214,6 +230,22 @@ const AdminPage = () => {
                       <Tooltip contentStyle={{ background: "#101010", border: "1px solid #1F1F1F", borderRadius: 12, fontSize: 11 }} />
                       <Bar dataKey="drops" fill="#C8FF00" radius={[6, 6, 0, 0]} />
                     </BarChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* Engagement Promedio */}
+                <div className="rounded-2xl border border-border bg-card p-4">
+                  <h3 className="mb-4 font-bebas text-lg text-foreground flex items-center gap-2">
+                    <TrendingUp size={16} className="text-spot-cyan" />
+                    Tasa de Engagement (Interacciones / Drop)
+                  </h3>
+                  <ResponsiveContainer width="100%" height={160}>
+                    <LineChart data={engagementByDay}>
+                      <XAxis dataKey="day" tick={{ fontSize: 10, fill: "#666" }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fontSize: 10, fill: "#666" }} axisLine={false} tickLine={false} width={24} />
+                      <Tooltip contentStyle={{ background: "#101010", border: "1px solid #1F1F1F", borderRadius: 12, fontSize: 11 }} />
+                      <Line type="monotone" dataKey="rate" stroke="#00F0FF" strokeWidth={3} dot={{ fill: '#00F0FF', strokeWidth: 2, r: 4 }} activeDot={{ r: 6 }} />
+                    </LineChart>
                   </ResponsiveContainer>
                 </div>
 

@@ -7,7 +7,9 @@ interface Profile {
     username: string | null;
     role: 'user' | 'admin';
     is_premium: boolean;
+    is_premium: boolean;
     university_domain: string | null;
+    avatar_emoji?: string | null;
 }
 
 interface AuthContextType {
@@ -18,16 +20,18 @@ interface AuthContextType {
         role?: string;
         is_premium?: boolean;
         university_domain?: string;
+        university_domain?: string;
         full_name?: string;
         institution_name?: string;
         phone?: string;
         onboarding_completed?: boolean;
+        avatar_emoji?: string;
     } | null;
     isAdmin: boolean;
     loading: boolean;
     signOut: () => Promise<void>;
     completeOnboarding: (data: { full_name: string; username: string; institution_name: string; phone: string }) => Promise<void>;
-    updateProfile: (data: Partial<{ full_name: string; username: string; institution_name: string; phone: string }>) => Promise<void>;
+    updateProfile: (data: Partial<{ full_name: string; username: string; institution_name: string; phone: string; avatar_emoji: string }>) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -42,7 +46,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
             const { data, error } = await supabase
                 .from("profiles")
-                .select("id, username, role, is_premium, university_domain, full_name, institution_name, phone, onboarding_completed")
+                .select("id, username, role, is_premium, university_domain, full_name, institution_name, phone, onboarding_completed, avatar_emoji")
                 .eq("id", uid)
                 .single();
 
@@ -112,7 +116,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     };
 
-    const updateProfile = async (updates: Partial<{ full_name: string; username: string; institution_name: string; phone: string }>) => {
+    const updateProfile = async (updates: Partial<{ full_name: string; username: string; institution_name: string; phone: string; avatar_emoji: string }>) => {
         if (!user) return;
         try {
             const { error } = await (supabase as any)

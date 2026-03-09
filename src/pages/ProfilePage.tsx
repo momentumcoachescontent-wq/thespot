@@ -31,8 +31,11 @@ const ProfilePage = () => {
     full_name: "",
     username: "",
     institution_name: "",
-    phone: ""
+    phone: "",
+    avatar_emoji: "🎤"
   });
+
+  const EMOJI_OPTIONS = ["🎤", "🔥", "😎", "👾", "🦊", "🎧", "🤘", "👽", "🚀", "💀"];
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
   // SOS PIN State
@@ -47,7 +50,8 @@ const ProfilePage = () => {
         full_name: profile.full_name || "",
         username: profile.username || "",
         institution_name: profile.institution_name || "",
-        phone: profile.phone || ""
+        phone: profile.phone || "",
+        avatar_emoji: profile.avatar_emoji || "🎤"
       });
     }
   }, [profile]);
@@ -80,7 +84,8 @@ const ProfilePage = () => {
         full_name: profileForm.full_name.trim(),
         username: profileForm.username.trim().toLowerCase().replace(/\s/g, ""),
         institution_name: profileForm.institution_name.trim(),
-        phone: profileForm.phone.trim()
+        phone: profileForm.phone.trim(),
+        avatar_emoji: profileForm.avatar_emoji
       });
 
       setIsEditingProfile(false);
@@ -158,7 +163,7 @@ const ProfilePage = () => {
         <div className="flex flex-col items-center gap-4 text-center">
           <div className="relative">
             <div className="flex h-24 w-24 items-center justify-center rounded-3xl bg-spot-lime text-5xl shadow-[0_0_30px_rgba(200,255,0,0.3)]">
-              🎤
+              {profileForm.avatar_emoji}
             </div>
             <button
               onClick={() => setIsEditingProfile(!isEditingProfile)}
@@ -186,6 +191,20 @@ const ProfilePage = () => {
             </div>
           ) : (
             <div className="w-full space-y-4 mt-2">
+              <div className="flex items-center gap-2 overflow-x-auto pb-2 px-1 scrollbar-hide">
+                {EMOJI_OPTIONS.map((emoji) => (
+                  <button
+                    key={emoji}
+                    onClick={() => setProfileForm({ ...profileForm, avatar_emoji: emoji })}
+                    className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-2xl transition-all ${profileForm.avatar_emoji === emoji
+                      ? "bg-spot-lime shadow-[0_0_15px_rgba(200,255,0,0.4)] scale-110"
+                      : "bg-white/5 opacity-50 hover:opacity-100"
+                      }`}
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
               <div className="space-y-3">
                 <div className="relative">
                   <User size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
