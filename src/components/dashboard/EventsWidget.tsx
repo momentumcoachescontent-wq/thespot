@@ -8,21 +8,28 @@ const EventsWidget = () => {
     const [events, setEvents] = useState<any[]>([]);
 
     useEffect(() => {
-        let query = (supabase as any)
+        (supabase as any)
             .from("events")
-            .select("id, title, event_date, spots!inner(name, university_domain)")
-            .gt("event_date", new Date().toISOString());
-
-        if (resolvedDomain) {
-            query = query.eq("spots.university_domain", resolvedDomain);
-        }
-
-        query
+            .select("id, title, event_date, spot_id, location_text, spots(name, university_domain)")
+            .gt("event_date", new Date().toISOString())
             .order("event_date", { ascending: true })
-            .limit(3)
+            .limit(20)
             .then(({ data, error }: any) => {
-                if (error) console.error("Error fetching events widget:", error);
-                setEvents(data || []);
+                if (error) {
+                    console.error("Error fetching events widget:", error);
+                    setEvents([]);
+                    return;
+                }
+                if (!data) return;
+
+                let filtered = data;
+                // If there's a domain filter, keep events that belong to that domain or have no spot (global)
+                if (resolvedDomain) {
+                    filtered = data.filter((ev: any) =>
+                        !ev.spot_id || ev.spots?.university_domain === resolvedDomain
+                    );
+                }
+                setEvents(filtered.slice(0, 3));
             });
     }, [resolvedDomain]);
 
@@ -40,7 +47,7 @@ const EventsWidget = () => {
                     <p className="font-bebas text-sm leading-none text-foreground">{ev.title}</p>
                     <p className="font-mono text-[9px] text-muted-foreground mt-0.5">
                         {new Date(ev.event_date).toLocaleDateString("es-MX", { weekday: "short", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
-                        {ev.spots?.name ? ` · ${ev.spots.name}` : ""}
+                        {ev.spots?.name ? ` · ${ev.spots.name}` : ev.location_text ? ` · ${ev.location_text}` : ""}
                     </p>
                 </div>
             ))}
