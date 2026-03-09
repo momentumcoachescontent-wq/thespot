@@ -263,4 +263,4 @@ const LandingPage = () => {
 };
 
 export default LandingPage;
-// Production Release v1.6.4 - Podcast Schema Fix (is_premium column) & Publication engine stable
+// Production Release v1.6.5 - Podcast RLS Policy Fix (Enable Publication)
