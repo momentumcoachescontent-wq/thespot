@@ -263,4 +263,4 @@ const LandingPage = () => {
 };
 
 export default LandingPage;
-// Production Release v1.6.0 - Persistence & Social Events (RSVP + Sharing)
+// Production Release v1.6.1 - Admin Premium Access Fix & Persistence

@@ -3,6 +3,7 @@ import { Headphones, Play, Pause, Plus, Lock, Clock, Mic } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 
 interface Podcast {
@@ -64,25 +65,20 @@ const PodcastCard = ({ pod, isPlaying, onToggle }: { pod: Podcast; isPlaying: bo
 
 const PodcastPage = () => {
   const { toast } = useToast();
+  const { isAdmin, profile } = useAuth();
   const [podcasts, setPodcasts] = useState<Podcast[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isPremium, setIsPremium] = useState(false);
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState({ title: "", description: "", days: 3 });
   const audioRef = useRef<HTMLAudioElement>(null);
 
+  // Consider isPremium if the profile says so OR if the user is an admin
+  const isPremium = profile?.is_premium || isAdmin;
+
   useEffect(() => {
     loadPodcasts();
-    checkPremium();
   }, []);
-
-  const checkPremium = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const { data } = await (supabase as any).from("profiles").select("is_premium, role").eq("id", user.id).single();
-    setIsPremium(data?.is_premium || data?.role === 'admin' || false);
-  };
 
   const loadPodcasts = async () => {
     try {
