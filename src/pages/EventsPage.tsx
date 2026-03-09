@@ -99,6 +99,7 @@ const EventsPage = () => {
       setForm({ title: "", description: "", event_date: "", spot_id: "", location_text: "" });
       loadEvents(myId);
     } catch (e: any) {
+      console.error("Error creating event (details):", e);
       toast({ title: "Error", description: "No se pudo crear el evento.", variant: "destructive" });
     }
   };
@@ -249,8 +250,8 @@ const EventsPage = () => {
                       whileTap={{ scale: 0.9 }}
                       onClick={() => toggleAttend(ev.id)}
                       className={`flex items-center justify-center h-8 px-3 rounded-full font-mono text-[9px] uppercase tracking-widest transition-all ${attendingIds.has(ev.id)
-                          ? "bg-spot-lime text-black font-bold shadow-[0_0_10px_rgba(200,255,0,0.2)]"
-                          : "border border-border text-muted-foreground hover:border-spot-lime/50 hover:text-spot-lime"
+                        ? "bg-spot-lime text-black font-bold shadow-[0_0_10px_rgba(200,255,0,0.2)]"
+                        : "border border-border text-muted-foreground hover:border-spot-lime/50 hover:text-spot-lime"
                         }`}
                     >
                       {attendingIds.has(ev.id) ? <><Check size={12} className="mr-1" /> Voy</> : <><Plus size={12} className="mr-1" /> Asistir</>}
