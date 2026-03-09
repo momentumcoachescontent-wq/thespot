@@ -19,8 +19,9 @@ CREATE POLICY "Users can delete own podcasts" ON storage.objects FOR DELETE USIN
     auth.uid() = owner AND bucket_id = 'podcasts'
 );
 
--- 3. Añadir columna description a podcasts (si faltaba)
+-- 3. Añadir columnas faltantes a la tabla podcasts
 ALTER TABLE public.podcasts ADD COLUMN IF NOT EXISTS description TEXT;
+ALTER TABLE public.podcasts ADD COLUMN IF NOT EXISTS is_premium BOOLEAN DEFAULT true;
 
 -- 4. Asegurar RLS en la tabla podcasts para inserción
 DROP POLICY IF EXISTS "Usuarios pueden crear podcasts" ON public.podcasts;
