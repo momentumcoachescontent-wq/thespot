@@ -263,4 +263,4 @@ const LandingPage = () => {
 };
 
 export default LandingPage;
-// Production Release v1.6.1 - Admin Premium Access Fix & Persistence
+// Production Release v1.6.2 - Database Schema Fix (is_premium column) & Admin Access

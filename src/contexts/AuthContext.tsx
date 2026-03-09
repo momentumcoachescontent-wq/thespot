@@ -6,6 +6,7 @@ interface Profile {
     id: string;
     username: string | null;
     role: 'user' | 'admin';
+    is_premium: boolean;
     university_domain: string | null;
 }
 
@@ -15,6 +16,7 @@ interface AuthContextType {
     profile: {
         username?: string;
         role?: string;
+        is_premium?: boolean;
         university_domain?: string;
         full_name?: string;
         institution_name?: string;
@@ -40,7 +42,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
             const { data, error } = await supabase
                 .from("profiles")
-                .select("id, username, role, university_domain, full_name, institution_name, phone, onboarding_completed")
+                .select("id, username, role, is_premium, university_domain, full_name, institution_name, phone, onboarding_completed")
                 .eq("id", uid)
                 .single();
 
