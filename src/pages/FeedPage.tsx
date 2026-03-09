@@ -162,8 +162,15 @@ const FeedPage = () => {
         expires_at: expiresAt,
         is_flagged: isModerationEnabled // If enabled, we flag it initially for processing
       }).select("id").single();
-
       if (dbError) throw dbError;
+
+      // 💥 GUARDAR EN HISTORIAL (PERSISTENCIA FASE 9)
+      const { error: historyError } = await (supabase as any).from("drop_history").insert({
+        author_id: user.id,
+        duration_seconds: Math.floor(blob.size / 15000) || 10
+      });
+      if (historyError) console.error("Error guardando en historial persistente:", historyError);
+
 
       if (isModerationEnabled && newDrop) {
         toast({

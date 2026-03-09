@@ -20,10 +20,10 @@ const TopUsersWidget = () => {
 
             let query = (supabase as any)
                 .from("drop_history")
-                .select("author_id, profiles:author_id(username), spots!inner(university_domain)");
+                .select("author_id, profiles!inner(username, university_domain)");
 
             if (startDate) query = query.gte("created_at", startDate);
-            if (resolvedDomain) query = query.eq("spots.university_domain", resolvedDomain);
+            if (resolvedDomain) query = query.eq("profiles.university_domain", resolvedDomain);
 
             const { data, error } = await query;
             if (error) {
