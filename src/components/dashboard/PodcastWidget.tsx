@@ -12,7 +12,7 @@ const PodcastWidget = () => {
     useEffect(() => {
         let query = (supabase as any)
             .from("podcasts")
-            .select("id, title, audio_url, duration_seconds, spots!inner(university_domain)")
+            .select("id, title, audio_url, duration_seconds, spots(university_domain)")
             .gt("expires_at", new Date().toISOString());
 
         if (resolvedDomain) {
