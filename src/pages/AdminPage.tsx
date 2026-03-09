@@ -499,10 +499,14 @@ const AdminPage = () => {
                             <div className="flex items-center gap-2">
                               <button
                                 onClick={async () => {
-                                  const { error } = await (supabase as any).from('drops').update({ is_flagged: false }).eq('id', drop.id);
+                                  const { error } = await supabase.functions.invoke('moderate-drop', {
+                                    body: { drop_id: drop.id, action: 'ADMIN_APPROVE' }
+                                  });
                                   if (!error) {
                                     setFlaggedDrops(prev => prev.filter(d => d.id !== drop.id));
                                     toast({ title: "Drop aprobado ✅" });
+                                  } else {
+                                    toast({ title: "Error", description: "No se pudo aprobar", variant: "destructive" });
                                   }
                                 }}
                                 className="rounded-lg bg-spot-lime px-3 py-1 font-bebas text-[11px] text-black shadow-lg shadow-spot-lime/20 transition-all hover:scale-105"
@@ -511,10 +515,14 @@ const AdminPage = () => {
                               </button>
                               <button
                                 onClick={async () => {
-                                  const { error } = await (supabase as any).from('drops').delete().eq('id', drop.id);
+                                  const { error } = await supabase.functions.invoke('moderate-drop', {
+                                    body: { drop_id: drop.id, action: 'ADMIN_REJECT' }
+                                  });
                                   if (!error) {
                                     setFlaggedDrops(prev => prev.filter(d => d.id !== drop.id));
                                     toast({ title: "Drop eliminado" });
+                                  } else {
+                                    toast({ title: "Error", description: "No se pudo rechazar", variant: "destructive" });
                                   }
                                 }}
                                 className="rounded-lg bg-muted px-3 py-1 font-bebas text-[11px] text-muted-foreground hover:bg-spot-red hover:text-white transition-all"

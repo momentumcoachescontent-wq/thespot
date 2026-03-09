@@ -263,4 +263,4 @@ const LandingPage = () => {
 };
 
 export default LandingPage;
-// Production Release v1.5.6 - Whisper Audio Transcription & AI Moderation Live
+// Production Release v1.5.7 - Ghost Schema & RLS Loop Fix (Edge AI Bypass)
