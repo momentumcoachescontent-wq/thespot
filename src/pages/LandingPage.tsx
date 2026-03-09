@@ -263,4 +263,4 @@ const LandingPage = () => {
 };
 
 export default LandingPage;
-// Production Release v1.5.7 - Ghost Schema & RLS Loop Fix (Edge AI Bypass)
+// Production Release v1.6.0 - Persistence & Social Events (RSVP + Sharing)

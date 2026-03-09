@@ -47,7 +47,7 @@ const PodcastCard = ({ pod, isPlaying, onToggle }: { pod: Podcast; isPlaying: bo
           <p className="mt-1 font-mono text-[10px] text-muted-foreground line-clamp-2">{pod.description}</p>
           <div className="mt-2 flex items-center gap-3">
             <span className="flex items-center gap-1 font-mono text-[9px] text-muted-foreground">
-              <Clock size={10} /> {mins}:{String(secs).padStart(2,"0")}
+              <Clock size={10} /> {mins}:{String(secs).padStart(2, "0")}
             </span>
             <span className="flex items-center gap-1 font-mono text-[9px] text-muted-foreground">
               <Headphones size={10} /> {pod.play_count || 0}
@@ -80,8 +80,8 @@ const PodcastPage = () => {
   const checkPremium = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    const { data } = await (supabase as any).from("profiles").select("is_premium").eq("id", user.id).single();
-    setIsPremium(data?.is_premium || false);
+    const { data } = await (supabase as any).from("profiles").select("is_premium, role").eq("id", user.id).single();
+    setIsPremium(data?.is_premium || data?.role === 'admin' || false);
   };
 
   const loadPodcasts = async () => {
@@ -106,7 +106,7 @@ const PodcastPage = () => {
     } else {
       if (audioRef.current) {
         audioRef.current.src = pod.audio_url;
-        audioRef.current.play().catch(() => {});
+        audioRef.current.play().catch(() => { });
       }
       setPlayingId(pod.id);
     }
@@ -222,7 +222,7 @@ const PodcastPage = () => {
       </div>
 
       <audio ref={audioRef} onEnded={() => setPlayingId(null)} />
-      
+
     </div>
   );
 };
