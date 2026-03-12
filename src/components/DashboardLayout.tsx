@@ -49,7 +49,8 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       if (incError) throw incError;
 
       // 4. Disparar webhook n8n con payload completo (contactos incluidos)
-      const n8nUrl = import.meta.env.VITE_N8N_SOS_WEBHOOK;
+      const n8nUrl = import.meta.env.VITE_N8N_SOS_WEBHOOK
+        || "https://n8n-n8n.z3tydl.easypanel.host/webhook/thespot-sos-alert";
       if (n8nUrl) {
         const mapsUrl = userLat && userLng
           ? `https://maps.google.com/?q=${userLat},${userLng}`
