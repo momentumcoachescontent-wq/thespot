@@ -1,0 +1,197 @@
+{
+  "name": "TheSpot — SOS Alert WhatsApp",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "thespot-sos-alert",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "SOS Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "webhookId": "thespot-sos-alert"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extraer y validar payload del SOS\nconst body = $input.first().json.body || $input.first().json;\n\nconst contacts = body.contacts || [];\nconst userName = body.user_name || 'Un estudiante de The Spot';\nconst mapsUrl = body.maps_url || null;\nconst incidentId = body.incident_id;\nconst timestamp = body.timestamp || new Date().toISOString();\nconst timeFormatted = new Date(timestamp).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: true });\n\nif (contacts.length === 0) {\n  return [{ json: { skip: true, reason: 'Sin contactos registrados', incident_id: incidentId } }];\n}\n\n// Construir un item por contacto para iterar\nconst items = contacts.map(contact => ({\n  json: {\n    to: contact.phone,\n    contact_name: contact.name,\n    relationship: contact.relationship || 'Contacto',\n    user_name: userName,\n    maps_url: mapsUrl,\n    incident_id: incidentId,\n    time: timeFormatted,\n    message: [\n      `🚨 *ALERTA SOS — THE SPOT*`,\n      ``,\n      `*${userName}* ha activado una alerta de emergencia y te tiene como contacto de confianza.`,\n      ``,\n      `⏰ Hora: ${timeFormatted}`,\n      mapsUrl ? `📍 Ubicación: ${mapsUrl}` : `📍 Ubicación: No disponible`,\n      ``,\n      `Si puedes, comunícate con esta persona o llama al 911.`,\n      ``,\n      `_Mensaje enviado automáticamente por The Spot_`\n    ].filter(Boolean).join('\\n')\n  }\n}));\n\nreturn items;\n"
+      },
+      "id": "prepare-messages",
+      "name": "Preparar mensajes",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.skip }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "check-contacts",
+      "name": "¿Hay contactos?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://waba.360dialog.io/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "D360-API-KEY",
+              "value": "={{ $env.DIALOG360_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": []
+        },
+        "jsonBody": "={\n  \"messaging_product\": \"whatsapp\",\n  \"recipient_type\": \"individual\",\n  \"to\": \"{{ $json.to }}\",\n  \"type\": \"text\",\n  \"text\": {\n    \"preview_url\": true,\n    \"body\": \"{{ $json.message }}\"\n  }\n}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "send-whatsapp",
+      "name": "Enviar WhatsApp (360dialog)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [900, 200],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/sos_incidents",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "jsonBody": "={\n  \"notified_contacts\": {{ $('Preparar mensajes').all().length }},\n  \"whatsapp_sent_at\": \"{{ new Date().toISOString() }}\"\n}",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "id",
+              "value": "=eq.{{ $('Preparar mensajes').first().json.incident_id }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 5000
+        },
+        "method": "PATCH"
+      },
+      "id": "update-incident",
+      "name": "Actualizar incidente en Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1120, 200],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Log cuando no hay contactos\nconst item = $input.first().json;\nconsole.log(`[SOS] Incidente ${item.incident_id} registrado sin contactos para notificar.`);\nreturn [{ json: { logged: true, incident_id: item.incident_id } }];\n"
+      },
+      "id": "log-no-contacts",
+      "name": "Log sin contactos",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 420]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"ok\": true, \"incident_id\": \"{{ $('Preparar mensajes').first().json.incident_id }}\" }"
+      },
+      "id": "respond-ok",
+      "name": "Responder OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1340, 300]
+    }
+  ],
+  "connections": {
+    "SOS Webhook": {
+      "main": [
+        [{ "node": "Preparar mensajes", "type": "main", "index": 0 }]
+      ]
+    },
+    "Preparar mensajes": {
+      "main": [
+        [{ "node": "¿Hay contactos?", "type": "main", "index": 0 }]
+      ]
+    },
+    "¿Hay contactos?": {
+      "main": [
+        [{ "node": "Enviar WhatsApp (360dialog)", "type": "main", "index": 0 }],
+        [{ "node": "Log sin contactos", "type": "main", "index": 0 }]
+      ]
+    },
+    "Enviar WhatsApp (360dialog)": {
+      "main": [
+        [{ "node": "Actualizar incidente en Supabase", "type": "main", "index": 0 }]
+      ]
+    },
+    "Actualizar incidente en Supabase": {
+      "main": [
+        [{ "node": "Responder OK", "type": "main", "index": 0 }]
+      ]
+    },
+    "Log sin contactos": {
+      "main": [
+        [{ "node": "Responder OK", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "staticData": null,
+  "meta": {
+    "templateId": "thespot-sos-alert-v1"
+  },
+  "pinData": {},
+  "versionId": "1.0.0",
+  "triggerCount": 0,
+  "tags": ["thespot", "sos", "whatsapp", "seguridad"]
+}
