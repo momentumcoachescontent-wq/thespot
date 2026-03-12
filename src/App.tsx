@@ -14,6 +14,8 @@ import EventsPage from "./pages/EventsPage";
 import ProfilePage from "./pages/ProfilePage";
 import AdminPage from "./pages/AdminPage";
 import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
+import TermsOfServicePage from "./pages/TermsOfServicePage";
+import DataDeletionPage from "./pages/DataDeletionPage";
 import NotFound from "./pages/NotFound";
 import ProtectedLayout from "./components/ProtectedLayout";
 
@@ -31,6 +33,8 @@ const App = () => (
               {/* Rutas públicas — no requieren autenticación */}
               <Route path="/" element={<LandingPage />} />
               <Route path="/privacy" element={<PrivacyPolicyPage />} />
+              <Route path="/terms" element={<TermsOfServicePage />} />
+              <Route path="/data-deletion" element={<DataDeletionPage />} />
 
               {/* Rutas Protegidas bajo Layout común */}
               <Route element={<ProtectedLayout />}>
