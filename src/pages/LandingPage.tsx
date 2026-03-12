@@ -257,6 +257,16 @@ const LandingPage = () => {
         <p className="mt-8 font-mono text-[9px] uppercase tracking-widest text-muted-foreground">
           Dilo ahora. Desaparece pronto. 🎤
         </p>
+
+        <p className="mt-4 font-mono text-[8px] text-muted-foreground/40 uppercase tracking-widest">
+          Al ingresar aceptas nuestra{" "}
+          <a
+            href="/privacy"
+            className="underline underline-offset-2 text-muted-foreground/60 hover:text-spot-lime transition-colors"
+          >
+            Política de Privacidad
+          </a>
+        </p>
       </motion.div>
     </div>
   );

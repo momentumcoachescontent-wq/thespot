@@ -13,6 +13,7 @@ import PodcastPage from "./pages/PodcastPage";
 import EventsPage from "./pages/EventsPage";
 import ProfilePage from "./pages/ProfilePage";
 import AdminPage from "./pages/AdminPage";
+import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
 import NotFound from "./pages/NotFound";
 import ProtectedLayout from "./components/ProtectedLayout";
 
@@ -27,7 +28,9 @@ const App = () => (
           <Sonner />
           <BrowserRouter>
             <Routes>
+              {/* Rutas públicas — no requieren autenticación */}
               <Route path="/" element={<LandingPage />} />
+              <Route path="/privacy" element={<PrivacyPolicyPage />} />
 
               {/* Rutas Protegidas bajo Layout común */}
               <Route element={<ProtectedLayout />}>
