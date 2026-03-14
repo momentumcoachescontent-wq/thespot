@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
-import { Headphones, Play, Pause, Plus, Lock, Clock, Mic, Square, Send } from "lucide-react";
+import { Headphones, Play, Pause, Plus, Lock, Clock, Mic, Square, Send, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -66,6 +67,7 @@ const PodcastCard = ({ pod, isPlaying, onToggle }: { pod: Podcast; isPlaying: bo
 const PodcastPage = () => {
   const { toast } = useToast();
   const { isAdmin, profile, user } = useAuth();
+  const navigate = useNavigate();
   const [podcasts, setPodcasts] = useState<Podcast[]>([]);
   const [loading, setLoading] = useState(true);
   const [playingId, setPlayingId] = useState<string | null>(null);
@@ -266,9 +268,12 @@ const PodcastPage = () => {
               <Plus size={12} /> Crear
             </button>
           ) : (
-            <span className="flex items-center gap-1.5 rounded-full border border-amber-500/30 px-3 py-1.5 font-mono text-[10px] uppercase tracking-widest text-amber-400">
-              <Lock size={10} /> Premium
-            </span>
+            <button
+              onClick={() => navigate("/premium")}
+              className="flex items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 font-mono text-[10px] uppercase tracking-widest text-amber-400 hover:bg-amber-500/20 transition-colors"
+            >
+              <Sparkles size={10} /> Spot+
+            </button>
           )}
         </div>
       </div>
@@ -280,11 +285,19 @@ const PodcastPage = () => {
             animate={{ opacity: 1 }}
             className="mb-4 rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4"
           >
-            <div className="flex items-center gap-3">
-              <Lock size={18} className="text-amber-400 shrink-0" />
-              <div>
-                <p className="font-bebas text-base text-amber-400">Contenido Premium</p>
-                <p className="font-mono text-[10px] text-muted-foreground">Usuarios premium pueden crear podcasts de hasta 5 días. Puedes escuchar todos los podcasts de tu campus.</p>
+            <div className="flex items-start gap-3">
+              <Sparkles size={18} className="text-amber-400 shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="font-bebas text-base text-amber-400">Crea tu propio podcast</p>
+                <p className="font-mono text-[10px] text-muted-foreground mt-0.5">
+                  Con Spot+ puedes grabar podcasts de hasta 5 días en tu campus. Puedes escuchar los de otros gratis.
+                </p>
+                <button
+                  onClick={() => navigate("/premium")}
+                  className="mt-3 flex items-center gap-1.5 rounded-full bg-amber-500 px-4 py-1.5 font-mono text-[10px] uppercase tracking-widest text-black font-bold hover:bg-amber-400 transition-colors shadow-[0_0_12px_rgba(245,158,11,0.3)]"
+                >
+                  <Sparkles size={10} /> Obtener Spot+
+                </button>
               </div>
             </div>
           </motion.div>
@@ -394,8 +407,16 @@ const PodcastPage = () => {
             <div className="mb-4 text-5xl">🎧</div>
             <h2 className="font-bebas text-2xl uppercase tracking-wider text-foreground">Sin podcasts aún</h2>
             <p className="mt-1 font-mono text-xs uppercase tracking-widest text-muted-foreground/60">
-              {isPremium ? "Crea el primer podcast de tu campus" : "Los usuarios premium pueden crear podcasts"}
+              {isPremium ? "Crea el primer podcast de tu campus" : "Los usuarios Spot+ pueden crear podcasts"}
             </p>
+            {!isPremium && (
+              <button
+                onClick={() => navigate("/premium")}
+                className="mt-4 flex items-center gap-1.5 rounded-full bg-amber-500 px-5 py-2 font-mono text-[10px] uppercase tracking-widest text-black font-bold hover:bg-amber-400 transition-colors"
+              >
+                <Sparkles size={10} /> Obtener Spot+
+              </button>
+            )}
           </div>
         ) : (
           <div className="space-y-3">

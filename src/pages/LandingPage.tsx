@@ -99,7 +99,7 @@ const LandingPage = () => {
 
     setIsSubmitting(true);
     try {
-      // Password bypass for admin / test accounts
+      // Password bypass for admin / test accounts — never fall through to OTP
       if (isBypassEmail(email)) {
         const { error } = await supabase.auth.signInWithPassword({
           email,
@@ -108,9 +108,14 @@ const LandingPage = () => {
         if (!error) {
           toast({ title: "Acceso directo", description: "Bienvenido de vuelta." });
           navigate("/feed");
-          return;
+        } else {
+          toast({
+            title: "Error de acceso",
+            description: "Credenciales incorrectas para esta cuenta.",
+            variant: "destructive",
+          });
         }
-        // fall through to OTP if password fails
+        return;
       }
 
       const { error } = await supabase.auth.signInWithOtp({
