@@ -18,6 +18,7 @@ import TermsOfServicePage from "./pages/TermsOfServicePage";
 import DataDeletionPage from "./pages/DataDeletionPage";
 import NotFound from "./pages/NotFound";
 import ProtectedLayout from "./components/ProtectedLayout";
+import PremiumPage from "./pages/PremiumPage";
 
 const queryClient = new QueryClient();
 
@@ -45,6 +46,7 @@ const App = () => (
                 <Route path="/events" element={<EventsPage />} />
                 <Route path="/profile" element={<ProfilePage />} />
                 <Route path="/admin" element={<AdminPage />} />
+                <Route path="/premium" element={<PremiumPage />} />
               </Route>
 
               <Route path="*" element={<NotFound />} />

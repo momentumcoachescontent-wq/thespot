@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from "recharts";
-import { Users, Mic, Shield, Trophy, TrendingUp, AlertTriangle, ArrowLeft, Crown } from "lucide-react";
+import { Users, Mic, Shield, Trophy, TrendingUp, AlertTriangle, ArrowLeft, Crown, CreditCard, CheckCircle, XCircle, Zap, Clock } from "lucide-react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -26,19 +26,20 @@ const StatCard = ({ icon: Icon, label, value, color = "text-spot-lime" }: any) =
   </motion.div>
 );
 
-const MOOD_LABELS: Record<number, string> = { 1: "Ansioso", 2: "Bajo", 3: "Normal", 4: "Bien", 5: "Motivado" };
 const MOOD_COLORS = ["#FF2D55", "#FF6B6B", "#888", "#C8FF00", "#00F0FF"];
 
 const AdminPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { isAdmin, loading: authLoading } = useAuth();
-  const [tab, setTab] = useState<"overview" | "drops" | "users" | "incidents" | "settings">("overview");
+  const [tab, setTab] = useState<"overview" | "drops" | "users" | "incidents" | "settings" | "stripe">("overview");
   const [settings, setSettings] = useState<any>({
     ai_moderation_enabled: false,
     auto_moderation_mode: false,
     moderation_rules: "",
-    ai_model_provider: "openai"
+    ai_model_provider: "openai",
+    drop_duration_freemium: 5,
+    drop_duration_premium: 15,
   });
   const [stats, setStats] = useState({ users: 0, drops: 0, incidents: 0, podcasts: 0 });
   const [dropsByDay, setDropsByDay] = useState<any[]>([]);
@@ -46,9 +47,12 @@ const AdminPage = () => {
   const [uniRanking, setUniRanking] = useState<any[]>([]);
   const [moodDist, setMoodDist] = useState<any[]>([]);
   const [topUsers, setTopUsers] = useState<any[]>([]);
+  const [allUsers, setAllUsers] = useState<any[]>([]);
   const [incidents, setIncidents] = useState<any[]>([]);
   const [flaggedDrops, setFlaggedDrops] = useState<any[]>([]);
   const [moderationLogs, setModerationLogs] = useState<any[]>([]);
+  const [stripeTransactions, setStripeTransactions] = useState<any[]>([]);
+  const [stripeStats, setStripeStats] = useState({ total: 0, revenue: 0, premium_users: 0 });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -59,22 +63,24 @@ const AdminPage = () => {
 
   const loadDashboard = async () => {
     try {
-      // Parallel data loading
-      const [profilesRes, dropsRes, incidentsRes, moodRes, settingsRes, interactionsRes] = await Promise.allSettled([
+      const [profilesRes, dropsRes, incidentsRes, moodRes, settingsRes, interactionsRes, allUsersRes, stripeRes] = await Promise.allSettled([
         (supabase as any).from("profiles").select("id, flag_count", { count: "exact", head: true }),
         (supabase as any).from("drops").select("id, created_at, profiles:author_id(username, university_domain, flag_count)", { count: "exact" }).order("created_at", { ascending: false }).limit(200),
         (supabase as any).from("sos_incidents").select("*").order("created_at", { ascending: false }).limit(50),
         (supabase as any).from("mood_checkins").select("mood").limit(500),
         (supabase as any).from("site_settings").select("*"),
-        (supabase as any).from("interactions").select("id, drop_id, created_at").order("created_at", { ascending: false }).limit(1000)
+        (supabase as any).from("interactions").select("id, drop_id, created_at").order("created_at", { ascending: false }).limit(1000),
+        (supabase as any).from("profiles").select("id, username, full_name, is_premium, role, subscription_status, premium_granted_by_admin, created_at").order("created_at", { ascending: false }).limit(100),
+        (supabase as any).from("stripe_transactions").select("*").order("created_at", { ascending: false }).limit(50),
       ]);
 
       const userCount = profilesRes.status === "fulfilled" ? (profilesRes.value.count || 0) : 0;
       const dropsData = dropsRes.status === "fulfilled" ? (dropsRes.value.data || []) : [];
       const dropCount = dropsRes.status === "fulfilled" ? (dropsRes.value.count || 0) : 0;
       const incidentsData = incidentsRes.status === "fulfilled" ? (incidentsRes.value.data || []) : [];
-      const moodData = moodRes.status === "fulfilled" ? (moodRes.value.data || []) : [];
       const settingsData = settingsRes.status === "fulfilled" ? (settingsRes.value.data || []) : [];
+      const usersData = allUsersRes.status === "fulfilled" ? (allUsersRes.value.data || []) : [];
+      const txData = stripeRes.status === "fulfilled" ? (stripeRes.value.data || []) : [];
 
       const loadedSettings = { ...settings };
       settingsData.forEach((s: any) => {
@@ -84,8 +90,16 @@ const AdminPage = () => {
 
       setStats({ users: userCount, drops: dropCount, incidents: incidentsData.length, podcasts: 0 });
       setIncidents(incidentsData.slice(0, 10));
+      setAllUsers(usersData);
+      setStripeTransactions(txData);
 
-      // Drops & Engagement by day (last 7 days)
+      // Stripe aggregate stats
+      const successTx = txData.filter((t: any) => t.event_type === "invoice.payment_succeeded");
+      const revenue = successTx.reduce((acc: number, t: any) => acc + (t.amount || 0), 0);
+      const premiumCount = usersData.filter((u: any) => u.is_premium).length;
+      setStripeStats({ total: txData.length, revenue, premium_users: premiumCount });
+
+      // Drops by day
       const daysDrops: Record<string, number> = {};
       const daysEng: Record<string, number> = {};
       for (let i = 6; i >= 0; i--) {
@@ -112,7 +126,6 @@ const AdminPage = () => {
         return { day, rate: count === 0 ? 0 : Math.round((eng / count) * 100) / 100 };
       }));
 
-      // University ranking
       const uniCounts: Record<string, number> = {};
       dropsData.forEach((d: any) => {
         const uni = d.profiles?.university_domain || "Otro";
@@ -120,7 +133,6 @@ const AdminPage = () => {
       });
       setUniRanking(Object.entries(uniCounts).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([uni, drops]) => ({ uni, drops })));
 
-      // Top users
       const userStats: Record<string, { drops: number, flags: number }> = {};
       dropsData.forEach((d: any) => {
         const u = d.profiles?.username || "anónimo";
@@ -134,24 +146,18 @@ const AdminPage = () => {
         rank: i + 1
       })));
 
-      // Mood distribution
-      const moodCounts: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
-      // Moderation queue
       const { data: flaggedData } = await (supabase as any)
         .from('drops')
         .select('id, audio_url, created_at, profiles:author_id(username)')
         .eq('is_flagged', true)
         .order('created_at', { ascending: false });
-
       setFlaggedDrops(flaggedData || []);
 
-      // Moderation logs
       const { data: logsData } = await (supabase as any)
         .from('moderation_logs')
         .select('*, profiles:user_id(username)')
         .order('created_at', { ascending: false })
         .limit(20);
-
       setModerationLogs(logsData || []);
 
     } catch (e) {
@@ -159,6 +165,71 @@ const AdminPage = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const grantPremium = async (userId: string, grant: boolean) => {
+    const { error } = await (supabase as any)
+      .from("profiles")
+      .update({
+        is_premium: grant,
+        premium_granted_by_admin: grant,
+        subscription_status: grant ? "active" : "inactive",
+        subscription_expires_at: grant ? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString() : null,
+      })
+      .eq("id", userId);
+
+    if (!error) {
+      setAllUsers(prev => prev.map(u => u.id === userId ? { ...u, is_premium: grant, premium_granted_by_admin: grant } : u));
+      toast({ title: grant ? "✅ Premium activado" : "Premium revocado", description: grant ? "El usuario ahora tiene Spot+" : "El usuario volvió a freemium" });
+    } else {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  };
+
+  const saveDropDurations = async () => {
+    const freemiumVal = Number(settings.drop_duration_freemium);
+    const premiumVal = Number(settings.drop_duration_premium);
+    if (isNaN(freemiumVal) || isNaN(premiumVal) || freemiumVal < 1 || premiumVal < 1) {
+      toast({ title: "Valores inválidos", description: "Las duraciones deben ser mayores a 0", variant: "destructive" });
+      return;
+    }
+    const [r1, r2] = await Promise.all([
+      (supabase as any).from("site_settings").upsert({ key: "drop_duration_freemium", value: freemiumVal }),
+      (supabase as any).from("site_settings").upsert({ key: "drop_duration_premium", value: premiumVal }),
+    ]);
+    if (r1.error || r2.error) {
+      toast({ title: "Error guardando duraciones", variant: "destructive" });
+    } else {
+      toast({ title: "✅ Duraciones actualizadas", description: `Freemium: ${freemiumVal}min · Premium: ${premiumVal}min` });
+    }
+  };
+
+  const testStripeConnection = async () => {
+    toast({ title: "Probando conexión a Stripe...", duration: 2000 });
+    try {
+      const { data, error } = await supabase.functions.invoke("create-checkout", {
+        body: { _test: true, plan: "monthly" },
+      });
+      // A missing STRIPE_SECRET_KEY will return a 400 with a specific error
+      if (error && error.message?.includes("STRIPE_SECRET_KEY")) {
+        throw new Error("STRIPE_SECRET_KEY no está configurada en Supabase");
+      }
+      // If we get a url back, connection works
+      if (data?.url || data?.error?.includes("No such price")) {
+        toast({ title: "✅ Stripe conectado", description: "Las credenciales son válidas. Configura el STRIPE_PRICE_ID." });
+      } else if (data?.error) {
+        throw new Error(data.error);
+      } else {
+        toast({ title: "✅ Stripe accesible", description: "Conexión establecida correctamente." });
+      }
+    } catch (err: any) {
+      toast({ title: "❌ Error de conexión Stripe", description: err.message || "Revisa STRIPE_SECRET_KEY en Supabase secrets", variant: "destructive" });
+    }
+  };
+
+  const refreshStripeTransactions = async () => {
+    const { data } = await (supabase as any).from("stripe_transactions").select("*").order("created_at", { ascending: false }).limit(50);
+    if (data) setStripeTransactions(data);
   };
 
   if (authLoading) return <div className="flex min-h-screen items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-2 border-spot-lime border-t-transparent" /></div>;
@@ -173,6 +244,11 @@ const AdminPage = () => {
       </button>
     </div>
   );
+
+  const TABS = ["overview", "drops", "users", "incidents", "settings", "stripe"] as const;
+  const TAB_LABELS: Record<string, string> = {
+    overview: "General", drops: "Drops", users: "Usuarios", incidents: "Incidentes", settings: "Config", stripe: "Stripe"
+  };
 
   return (
     <div className="min-h-screen bg-background pb-8">
@@ -189,15 +265,14 @@ const AdminPage = () => {
           </div>
           <Crown size={20} className="text-amber-400" />
         </div>
-        {/* Tabs */}
         <div className="mx-auto flex max-w-2xl gap-1 overflow-x-auto px-4 pb-2">
-          {(["overview", "drops", "users", "incidents", "settings"] as const).map(t => (
+          {TABS.map(t => (
             <button
               key={t}
               onClick={() => setTab(t)}
               className={`shrink-0 rounded-full px-4 py-1.5 font-mono text-[10px] uppercase tracking-widest transition-all ${tab === t ? "bg-spot-lime text-black" : "text-muted-foreground hover:text-foreground"}`}
             >
-              {t === "overview" ? "General" : t === "drops" ? "Drops" : t === "users" ? "Usuarios" : t === "incidents" ? "Incidentes" : "Config"}
+              {TAB_LABELS[t]}
             </button>
           ))}
         </div>
@@ -210,7 +285,7 @@ const AdminPage = () => {
           </div>
         ) : (
           <>
-            {/* Overview tab */}
+            {/* ── Overview ── */}
             {tab === "overview" && (
               <>
                 <div className="grid grid-cols-2 gap-3">
@@ -220,7 +295,6 @@ const AdminPage = () => {
                   <StatCard icon={Trophy} label="Top universidades" value={uniRanking.length} color="text-amber-400" />
                 </div>
 
-                {/* Drops por día */}
                 <div className="rounded-2xl border border-border bg-card p-4">
                   <h3 className="mb-4 font-bebas text-lg text-foreground">Drops — Últimos 7 días</h3>
                   <ResponsiveContainer width="100%" height={160}>
@@ -233,7 +307,6 @@ const AdminPage = () => {
                   </ResponsiveContainer>
                 </div>
 
-                {/* Engagement Promedio */}
                 <div className="rounded-2xl border border-border bg-card p-4">
                   <h3 className="mb-4 font-bebas text-lg text-foreground flex items-center gap-2">
                     <TrendingUp size={16} className="text-spot-cyan" />
@@ -249,7 +322,6 @@ const AdminPage = () => {
                   </ResponsiveContainer>
                 </div>
 
-                {/* Mood distribution */}
                 {moodDist.length > 0 && (
                   <div className="rounded-2xl border border-border bg-card p-4">
                     <h3 className="mb-4 font-bebas text-lg text-foreground">Distribución de Estado de Ánimo</h3>
@@ -275,7 +347,7 @@ const AdminPage = () => {
               </>
             )}
 
-            {/* Drops tab */}
+            {/* ── Drops ── */}
             {tab === "drops" && (
               <div className="rounded-2xl border border-border bg-card p-4">
                 <h3 className="mb-4 font-bebas text-lg text-foreground">Universidades más activas</h3>
@@ -311,36 +383,83 @@ const AdminPage = () => {
               </div>
             )}
 
-            {/* Users tab */}
+            {/* ── Users ── */}
             {tab === "users" && (
-              <div className="space-y-3">
-                <h3 className="font-bebas text-xl text-foreground">Top usuarios por drops</h3>
-                {topUsers.length === 0 ? (
-                  <p className="font-mono text-xs text-muted-foreground">Sin datos suficientes aún.</p>
-                ) : topUsers.map((u) => (
-                  <div key={u.user} className="flex items-center gap-3 rounded-xl border border-border bg-card p-3">
-                    <span className={`font-bebas text-2xl w-8 text-center ${u.rank === 1 ? "text-amber-400" : u.rank === 2 ? "text-gray-300" : u.rank === 3 ? "text-amber-600" : "text-muted-foreground"}`}>
-                      {u.rank}
-                    </span>
-                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-lg">🎤</div>
-                    <div className="flex-1">
-                      <p className="font-bebas text-base leading-none text-foreground flex items-center gap-2">
-                        @{u.user}
-                        {u.flags > 0 && (
-                          <span className="bg-spot-red/10 text-spot-red px-1.5 py-0.5 rounded text-[8px] font-mono leading-none border border-spot-red/20">
-                            ⚠️ {u.flags}
-                          </span>
-                        )}
-                      </p>
-                      <p className="font-mono text-[10px] text-muted-foreground">{u.drops} drops</p>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-bebas text-xl text-foreground">Gestión de Usuarios</h3>
+                  <span className="font-mono text-[10px] text-muted-foreground">{allUsers.length} usuarios</span>
+                </div>
+
+                {/* Top drops */}
+                <div className="space-y-2">
+                  <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Top por drops</p>
+                  {topUsers.map((u) => (
+                    <div key={u.user} className="flex items-center gap-3 rounded-xl border border-border bg-card p-3">
+                      <span className={`font-bebas text-2xl w-8 text-center ${u.rank === 1 ? "text-amber-400" : u.rank === 2 ? "text-gray-300" : u.rank === 3 ? "text-amber-600" : "text-muted-foreground"}`}>
+                        {u.rank}
+                      </span>
+                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-lg">🎤</div>
+                      <div className="flex-1">
+                        <p className="font-bebas text-base leading-none text-foreground flex items-center gap-2">
+                          @{u.user}
+                          {u.flags > 0 && (
+                            <span className="bg-spot-red/10 text-spot-red px-1.5 py-0.5 rounded text-[8px] font-mono leading-none border border-spot-red/20">
+                              ⚠️ {u.flags}
+                            </span>
+                          )}
+                        </p>
+                        <p className="font-mono text-[10px] text-muted-foreground">{u.drops} drops</p>
+                      </div>
+                      {u.rank === 1 && <Trophy size={16} className="text-amber-400" />}
                     </div>
-                    {u.rank === 1 && <Trophy size={16} className="text-amber-400" />}
-                  </div>
-                ))}
+                  ))}
+                </div>
+
+                {/* Premium management */}
+                <div className="space-y-2">
+                  <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Gestión de Premium (Spot+)</p>
+                  {allUsers.length === 0 ? (
+                    <p className="font-mono text-xs text-muted-foreground">Sin datos.</p>
+                  ) : allUsers.map((u) => (
+                    <div key={u.id} className="flex items-center gap-3 rounded-xl border border-border bg-card p-3">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-sm">
+                        {u.role === 'admin' ? '👑' : u.is_premium ? '⭐' : '🎤'}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bebas text-sm leading-none text-foreground truncate">
+                          @{u.username || "—"}
+                          {u.role === 'admin' && <span className="ml-1 text-amber-400 text-[10px]"> ADMIN</span>}
+                        </p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          {u.is_premium ? (
+                            <span className="font-mono text-[9px] text-spot-lime">Spot+ activo</span>
+                          ) : (
+                            <span className="font-mono text-[9px] text-muted-foreground">Freemium</span>
+                          )}
+                          {u.premium_granted_by_admin && (
+                            <span className="font-mono text-[8px] text-amber-400 border border-amber-400/30 px-1 rounded">manual</span>
+                          )}
+                        </div>
+                      </div>
+                      {u.role !== 'admin' && (
+                        <button
+                          onClick={() => grantPremium(u.id, !u.is_premium)}
+                          className={`shrink-0 rounded-lg px-3 py-1.5 font-bebas text-[11px] transition-all ${u.is_premium
+                            ? "bg-muted text-muted-foreground hover:bg-spot-red/20 hover:text-spot-red border border-border"
+                            : "bg-spot-lime/10 text-spot-lime border border-spot-lime/30 hover:bg-spot-lime/20"
+                          }`}
+                        >
+                          {u.is_premium ? "REVOCAR" : "DAR SPOT+"}
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
-            {/* Incidents tab */}
+            {/* ── Incidents ── */}
             {tab === "incidents" && (
               <div className="space-y-3">
                 <h3 className="font-bebas text-xl text-foreground">Incidentes SOS recientes</h3>
@@ -371,12 +490,13 @@ const AdminPage = () => {
               </div>
             )}
 
-            {/* Settings tab */}
+            {/* ── Settings ── */}
             {tab === "settings" && (
               <div className="space-y-6">
                 <h3 className="font-bebas text-xl text-foreground">Configuración de Sistema</h3>
 
                 <div className="rounded-2xl border border-border bg-card p-6 space-y-6">
+                  {/* AI moderation toggle */}
                   <div className="flex items-center justify-between">
                     <div>
                       <h4 className="font-bebas text-lg text-foreground">Moderación Automática (IA)</h4>
@@ -385,10 +505,7 @@ const AdminPage = () => {
                     <button
                       onClick={async () => {
                         const newValue = !settings.ai_moderation_enabled;
-                        const { error } = await (supabase as any)
-                          .from('site_settings')
-                          .upsert({ key: 'ai_moderation_enabled', value: newValue });
-
+                        const { error } = await (supabase as any).from('site_settings').upsert({ key: 'ai_moderation_enabled', value: newValue });
                         if (!error) {
                           setSettings({ ...settings, ai_moderation_enabled: newValue });
                           toast({ title: newValue ? "Moderación activada" : "Moderación desactivada" });
@@ -408,10 +525,7 @@ const AdminPage = () => {
                     <button
                       onClick={async () => {
                         const newValue = !settings.auto_moderation_mode;
-                        const { error } = await (supabase as any)
-                          .from('site_settings')
-                          .upsert({ key: 'auto_moderation_mode', value: newValue });
-
+                        const { error } = await (supabase as any).from('site_settings').upsert({ key: 'auto_moderation_mode', value: newValue });
                         if (!error) {
                           setSettings({ ...settings, auto_moderation_mode: newValue });
                           toast({ title: newValue ? "Auto-Piloto Activado" : "Auto-Piloto Desactivado" });
@@ -432,10 +546,7 @@ const AdminPage = () => {
                       value={settings.ai_model_provider}
                       onChange={async (e) => {
                         const newValue = e.target.value;
-                        const { error } = await (supabase as any)
-                          .from('site_settings')
-                          .upsert({ key: 'ai_model_provider', value: newValue });
-
+                        const { error } = await (supabase as any).from('site_settings').upsert({ key: 'ai_model_provider', value: newValue });
                         if (!error) {
                           setSettings({ ...settings, ai_model_provider: newValue });
                           toast({ title: `IA cambiada a ${newValue.toUpperCase()}` });
@@ -450,19 +561,18 @@ const AdminPage = () => {
                       <option value="gemini-1.5-flash-lite">Google (Gemini 1.5 Flash-Lite)</option>
                     </select>
                   </div>
+
                   <div className="flex justify-end pt-1">
                     <button
                       onClick={async () => {
                         toast({ title: "Iniciando prueba de conexión...", duration: 2000 });
                         try {
-                          const { data, error } = await supabase.functions.invoke('test-ai', {
-                            body: { provider: settings.ai_model_provider }
-                          });
+                          const { data, error } = await supabase.functions.invoke('test-ai', { body: { provider: settings.ai_model_provider } });
                           if (error) throw error;
                           if (data?.success) {
                             toast({ title: "✅ Conexión Exitosa", description: data.message });
                           } else {
-                            throw new Error(data?.error || "Error desconocido al contactar la IA");
+                            throw new Error(data?.error || "Error desconocido");
                           }
                         } catch (err: any) {
                           toast({ title: "❌ Fallo de Conexión", description: err.message || "Revisa las API Keys en Supabase", variant: "destructive" });
@@ -476,15 +586,53 @@ const AdminPage = () => {
 
                   <div className="h-px bg-border" />
 
+                  {/* ─ Drop duration config ─ */}
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                      <Clock size={16} className="text-spot-lime" />
+                      <h4 className="font-bebas text-lg text-foreground">Duración de Drops</h4>
+                    </div>
+                    <p className="font-mono text-[10px] text-muted-foreground">Configura cuántos minutos duran los drops según el plan del usuario.</p>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Freemium (min)</label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={60}
+                          value={settings.drop_duration_freemium}
+                          onChange={(e) => setSettings({ ...settings, drop_duration_freemium: e.target.value })}
+                          className="w-full rounded-lg border border-border bg-muted/50 px-3 py-2 font-mono text-sm text-foreground focus:border-spot-lime/50 focus:outline-none"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="font-mono text-[10px] uppercase tracking-widest text-spot-lime">Spot+ Premium (min)</label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={1440}
+                          value={settings.drop_duration_premium}
+                          onChange={(e) => setSettings({ ...settings, drop_duration_premium: e.target.value })}
+                          className="w-full rounded-lg border border-spot-lime/30 bg-spot-lime/5 px-3 py-2 font-mono text-sm text-spot-lime focus:border-spot-lime focus:outline-none"
+                        />
+                      </div>
+                    </div>
+                    <button
+                      onClick={saveDropDurations}
+                      className="rounded-lg bg-spot-lime px-4 py-2 font-bebas text-sm text-black hover:bg-spot-lime/80 transition-all"
+                    >
+                      GUARDAR DURACIONES
+                    </button>
+                  </div>
+
+                  <div className="h-px bg-border" />
+
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <h4 className="font-bebas text-lg text-foreground">Reglas de Moderación</h4>
                       <button
                         onClick={async () => {
-                          const { error } = await (supabase as any)
-                            .from('site_settings')
-                            .upsert({ key: 'moderation_rules', value: settings.moderation_rules });
-
+                          const { error } = await (supabase as any).from('site_settings').upsert({ key: 'moderation_rules', value: settings.moderation_rules });
                           if (!error) toast({ title: "Reglas actualizadas" });
                         }}
                         className="rounded-md bg-spot-lime/10 px-2 py-1 font-bebas text-[10px] text-spot-lime border border-spot-lime/20 hover:bg-spot-lime/20"
@@ -492,7 +640,6 @@ const AdminPage = () => {
                         GUARDAR REGLAS
                       </button>
                     </div>
-                    <p className="font-mono text-[10px] text-muted-foreground">Personaliza el criterio de la IA. Sé específico sobre qué prohibir.</p>
                     <textarea
                       value={settings.moderation_rules}
                       onChange={(e) => setSettings({ ...settings, moderation_rules: e.target.value })}
@@ -502,7 +649,7 @@ const AdminPage = () => {
                   </div>
                 </div>
 
-                {/* Moderation Queue */}
+                {/* Moderation queue */}
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <h3 className="font-bebas text-xl text-foreground">Cola de Moderación ({flaggedDrops.length})</h3>
@@ -531,14 +678,10 @@ const AdminPage = () => {
                             <div className="flex items-center gap-2">
                               <button
                                 onClick={async () => {
-                                  const { error } = await supabase.functions.invoke('moderate-drop', {
-                                    body: { drop_id: drop.id, action: 'ADMIN_APPROVE' }
-                                  });
+                                  const { error } = await supabase.functions.invoke('moderate-drop', { body: { drop_id: drop.id, action: 'ADMIN_APPROVE' } });
                                   if (!error) {
                                     setFlaggedDrops(prev => prev.filter(d => d.id !== drop.id));
                                     toast({ title: "Drop aprobado ✅" });
-                                  } else {
-                                    toast({ title: "Error", description: "No se pudo aprobar", variant: "destructive" });
                                   }
                                 }}
                                 className="rounded-lg bg-spot-lime px-3 py-1 font-bebas text-[11px] text-black shadow-lg shadow-spot-lime/20 transition-all hover:scale-105"
@@ -547,14 +690,10 @@ const AdminPage = () => {
                               </button>
                               <button
                                 onClick={async () => {
-                                  const { error } = await supabase.functions.invoke('moderate-drop', {
-                                    body: { drop_id: drop.id, action: 'ADMIN_REJECT' }
-                                  });
+                                  const { error } = await supabase.functions.invoke('moderate-drop', { body: { drop_id: drop.id, action: 'ADMIN_REJECT' } });
                                   if (!error) {
                                     setFlaggedDrops(prev => prev.filter(d => d.id !== drop.id));
                                     toast({ title: "Drop eliminado" });
-                                  } else {
-                                    toast({ title: "Error", description: "No se pudo rechazar", variant: "destructive" });
                                   }
                                 }}
                                 className="rounded-lg bg-muted px-3 py-1 font-bebas text-[11px] text-muted-foreground hover:bg-spot-red hover:text-white transition-all"
@@ -573,7 +712,128 @@ const AdminPage = () => {
                 <div className="rounded-xl border border-spot-cyan/20 bg-spot-cyan/5 p-4">
                   <p className="font-mono text-[10px] text-spot-cyan leading-relaxed">
                     <TrendingUp size={12} className="inline mr-1 mb-0.5" />
-                    <strong>Nota de Rendimiento:</strong> Al usar WebM (Opus), estamos ahorrando un 70% de ancho de banda en comparación con MP3 estándar.
+                    <strong>Nota:</strong> Al usar WebM (Opus) ahorramos ~70% de ancho de banda vs MP3 estándar.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* ── Stripe ── */}
+            {tab === "stripe" && (
+              <div className="space-y-6">
+                <div className="flex items-center gap-3">
+                  <CreditCard size={20} className="text-spot-lime" />
+                  <h3 className="font-bebas text-xl text-foreground">Panel de Stripe — Spot+</h3>
+                </div>
+
+                {/* Stats */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="rounded-2xl border border-border bg-card p-4 text-center">
+                    <p className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground mb-1">Usuarios Premium</p>
+                    <p className="font-bebas text-3xl text-spot-lime">{stripeStats.premium_users}</p>
+                  </div>
+                  <div className="rounded-2xl border border-border bg-card p-4 text-center">
+                    <p className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground mb-1">Transacciones</p>
+                    <p className="font-bebas text-3xl text-spot-cyan">{stripeStats.total}</p>
+                  </div>
+                  <div className="rounded-2xl border border-border bg-card p-4 text-center">
+                    <p className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground mb-1">Ingresos</p>
+                    <p className="font-bebas text-3xl text-amber-400">
+                      ${(stripeStats.revenue / 100).toFixed(0)}
+                      <span className="text-xs text-muted-foreground ml-1">MXN</span>
+                    </p>
+                  </div>
+                </div>
+
+                {/* Connection test */}
+                <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
+                  <h4 className="font-bebas text-lg text-foreground flex items-center gap-2">
+                    <Zap size={16} className="text-amber-400" />
+                    Prueba de Conexión
+                  </h4>
+                  <p className="font-mono text-[10px] text-muted-foreground">
+                    Verifica que <code className="text-spot-lime">STRIPE_SECRET_KEY</code> y <code className="text-spot-lime">STRIPE_PRICE_ID</code> estén configuradas en los secretos de Supabase.
+                  </p>
+                  <div className="rounded-lg border border-border bg-muted/30 p-3 font-mono text-[10px] text-muted-foreground space-y-1">
+                    <p>Secrets requeridos en Supabase → Edge Functions:</p>
+                    <p className="text-spot-lime">• STRIPE_SECRET_KEY — clave secreta de Stripe (sk_...)</p>
+                    <p className="text-spot-lime">• STRIPE_WEBHOOK_SECRET — desde Stripe Webhooks (whsec_...)</p>
+                    <p className="text-spot-lime">• STRIPE_PRICE_ID — ID del precio mensual (price_...)</p>
+                    <p className="text-spot-cyan">• STRIPE_PRICE_ID_YEARLY — ID del precio anual (opcional)</p>
+                    <p className="text-spot-cyan">• APP_URL — URL del frontend (https://thespot.lovable.app)</p>
+                  </div>
+                  <button
+                    onClick={testStripeConnection}
+                    className="flex items-center gap-2 rounded-lg bg-spot-lime/10 px-4 py-2 font-mono text-[10px] text-spot-lime border border-spot-lime/30 hover:bg-spot-lime/20 transition-all uppercase tracking-widest"
+                  >
+                    <Zap size={12} /> Probar Conexión a Stripe
+                  </button>
+                </div>
+
+                {/* Transactions */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-bebas text-lg text-foreground">Transacciones Recientes</h4>
+                    <button
+                      onClick={refreshStripeTransactions}
+                      className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:text-spot-lime transition-colors"
+                    >
+                      Actualizar
+                    </button>
+                  </div>
+
+                  {stripeTransactions.length === 0 ? (
+                    <div className="rounded-xl border border-border bg-card/50 p-10 text-center">
+                      <CreditCard size={28} className="mx-auto mb-3 text-muted-foreground opacity-20" />
+                      <p className="font-mono text-[10px] text-muted-foreground uppercase tracking-widest">Sin transacciones aún</p>
+                      <p className="font-mono text-[9px] text-muted-foreground/50 mt-1">Las transacciones aparecerán aquí al recibir webhooks de Stripe.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {stripeTransactions.map((tx) => {
+                        const isSuccess = tx.status === "succeeded" || tx.status === "active";
+                        const isFailed = tx.status === "failed" || tx.status === "canceled";
+                        return (
+                          <div key={tx.id} className="rounded-xl border border-border bg-card p-3 flex items-center gap-3">
+                            <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${isSuccess ? "bg-spot-lime/10" : isFailed ? "bg-spot-red/10" : "bg-amber-400/10"}`}>
+                              {isSuccess ? <CheckCircle size={14} className="text-spot-lime" /> : isFailed ? <XCircle size={14} className="text-spot-red" /> : <Clock size={14} className="text-amber-400" />}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-mono text-[10px] text-foreground truncate">{tx.event_type}</p>
+                              <p className="font-mono text-[9px] text-muted-foreground">
+                                {new Date(tx.created_at).toLocaleString("es-MX")}
+                                {tx.stripe_customer && <span className="ml-2 opacity-50 truncate">{tx.stripe_customer}</span>}
+                              </p>
+                            </div>
+                            <div className="text-right shrink-0">
+                              {tx.amount != null && (
+                                <p className={`font-bebas text-base ${isSuccess ? "text-spot-lime" : "text-muted-foreground"}`}>
+                                  ${(tx.amount / 100).toFixed(2)}
+                                  <span className="text-[9px] ml-0.5 uppercase">{tx.currency || "mxn"}</span>
+                                </p>
+                              )}
+                              <span className={`font-mono text-[8px] uppercase px-1.5 py-0.5 rounded ${isSuccess ? "bg-spot-lime/10 text-spot-lime" : isFailed ? "bg-spot-red/10 text-spot-red" : "bg-amber-400/10 text-amber-400"}`}>
+                                {tx.status || "—"}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Webhook setup instructions */}
+                <div className="rounded-xl border border-amber-400/20 bg-amber-400/5 p-4 space-y-2">
+                  <p className="font-mono text-[10px] text-amber-400 font-bold uppercase tracking-widest">Configuración del Webhook en Stripe</p>
+                  <p className="font-mono text-[10px] text-muted-foreground">
+                    En el dashboard de Stripe → Developers → Webhooks, agrega este endpoint:
+                  </p>
+                  <code className="block rounded bg-black/40 px-3 py-2 font-mono text-[10px] text-spot-lime break-all">
+                    https://inchlsvnvdotbxqnsxmd.supabase.co/functions/v1/stripe-webhook
+                  </code>
+                  <p className="font-mono text-[9px] text-muted-foreground">
+                    Eventos a escuchar: <span className="text-spot-cyan">customer.subscription.*</span> · <span className="text-spot-cyan">invoice.payment_succeeded</span> · <span className="text-spot-cyan">invoice.payment_failed</span> · <span className="text-spot-cyan">checkout.session.completed</span>
                   </p>
                 </div>
               </div>

@@ -13,7 +13,7 @@ import { useFilter } from "@/contexts/FilterContext";
 import UniversitySelector from "@/components/UniversitySelector";
 
 const FeedPage = () => {
-  const { user, profile } = useAuth();
+  const { user, profile, isPremium, isAdmin } = useAuth();
   const { resolvedDomain } = useFilter();
   const [showRecorder, setShowRecorder] = useState(false);
   const [drops, setDrops] = useState<any[]>([]);
@@ -143,7 +143,16 @@ const FeedPage = () => {
         spotId = newSpot.id;
       }
 
-      const expiresAt = new Date(Date.now() + 15 * 60000).toISOString();
+      // Fetch configurable drop duration from site_settings based on user tier
+      const isPremiumUser = isPremium || isAdmin;
+      const durationKey = isPremiumUser ? "drop_duration_premium" : "drop_duration_freemium";
+      const { data: durationSetting } = await (supabase as any)
+        .from("site_settings")
+        .select("value")
+        .eq("key", durationKey)
+        .single();
+      const dropMinutes = Number(durationSetting?.value) || (isPremiumUser ? 15 : 5);
+      const expiresAt = new Date(Date.now() + dropMinutes * 60000).toISOString();
 
       // Check if AI moderation is enabled
       const { data: moderationSetting } = await (supabase as any)
@@ -189,7 +198,7 @@ const FeedPage = () => {
           console.error("Fallo crítico invocando IA:", e);
         }
       } else {
-        toast({ title: "Drop activo 🎙️", description: "Tu voz es ahora parte del presente. Desaparecerá en 15 minutos." });
+        toast({ title: "Drop activo 🎙️", description: `Tu voz es ahora parte del presente. Desaparecerá en ${dropMinutes} minutos.` });
       }
 
       fetchDrops();

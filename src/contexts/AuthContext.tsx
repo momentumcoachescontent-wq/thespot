@@ -7,31 +7,29 @@ interface Profile {
     username: string | null;
     role: 'user' | 'admin';
     is_premium: boolean;
-    is_premium: boolean;
+    subscription_status: 'active' | 'inactive' | 'past_due' | 'canceled' | 'trialing' | null;
+    subscription_expires_at: string | null;
+    stripe_customer_id: string | null;
+    premium_granted_by_admin: boolean;
     university_domain: string | null;
     avatar_emoji?: string | null;
+    full_name?: string | null;
+    institution_name?: string | null;
+    phone?: string | null;
+    onboarding_completed?: boolean;
 }
 
 interface AuthContextType {
     user: User | null;
     session: Session | null;
-    profile: {
-        username?: string;
-        role?: string;
-        is_premium?: boolean;
-        university_domain?: string;
-        university_domain?: string;
-        full_name?: string;
-        institution_name?: string;
-        phone?: string;
-        onboarding_completed?: boolean;
-        avatar_emoji?: string;
-    } | null;
+    profile: Profile | null;
     isAdmin: boolean;
+    isPremium: boolean;
     loading: boolean;
     signOut: () => Promise<void>;
     completeOnboarding: (data: { full_name: string; username: string; institution_name: string; phone: string }) => Promise<void>;
     updateProfile: (data: Partial<{ full_name: string; username: string; institution_name: string; phone: string; avatar_emoji: string }>) => Promise<void>;
+    refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -44,9 +42,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const fetchProfile = async (uid: string) => {
         try {
-            const { data, error } = await supabase
+            const { data, error } = await (supabase as any)
                 .from("profiles")
-                .select("id, username, role, is_premium, university_domain, full_name, institution_name, phone, onboarding_completed, avatar_emoji")
+                .select("id, username, role, is_premium, subscription_status, subscription_expires_at, stripe_customer_id, premium_granted_by_admin, university_domain, full_name, institution_name, phone, onboarding_completed, avatar_emoji")
                 .eq("id", uid)
                 .single();
 
@@ -59,7 +57,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     useEffect(() => {
-        // 1. Obtener sesión inicial
         supabase.auth.getSession().then(({ data: { session } }) => {
             setSession(session);
             setUser(session?.user ?? null);
@@ -69,7 +66,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setLoading(false);
         });
 
-        // 2. Escuchar cambios de estado
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
             setSession(session);
             setUser(session?.user ?? null);
@@ -89,13 +85,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await supabase.auth.signOut();
     };
 
+    const refreshProfile = async () => {
+        if (user) await fetchProfile(user.id);
+    };
+
     const completeOnboarding = async (data: { full_name: string; username: string; institution_name: string; phone: string }) => {
-        if (!user) {
-            console.error("No user logged in to complete onboarding.");
-            return;
-        }
+        if (!user) return;
         try {
-            const { error } = await supabase
+            const { error } = await (supabase as any)
                 .from("profiles")
                 .update({
                     full_name: data.full_name,
@@ -107,8 +104,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 .eq("id", user.id);
 
             if (error) throw error;
-
-            // Re-fetch profile to update context
             await fetchProfile(user.id);
         } catch (err) {
             console.error("Error completing onboarding:", err);
@@ -133,10 +128,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     const isAdmin = profile?.role === 'admin';
+    // Premium: either Stripe active subscription, or manually granted by admin, or is admin
+    const isPremium = isAdmin || profile?.is_premium === true;
 
     return (
-        <AuthContext.Provider value={{ session, user, profile, isAdmin, loading, signOut, completeOnboarding, updateProfile }}
-        >
+        <AuthContext.Provider value={{ session, user, profile, isAdmin, isPremium, loading, signOut, completeOnboarding, updateProfile, refreshProfile }}>
             {children}
         </AuthContext.Provider>
     );
