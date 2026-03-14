@@ -1,12 +1,87 @@
 import { useState, useEffect } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from "recharts";
-import { Users, Mic, Shield, Trophy, TrendingUp, AlertTriangle, ArrowLeft, Crown, CreditCard, CheckCircle, XCircle, Zap, Clock } from "lucide-react";
+import { Users, Mic, Shield, Trophy, TrendingUp, AlertTriangle, ArrowLeft, Crown, CreditCard, CheckCircle, XCircle, Zap, Clock, Pencil, X, Check as CheckIcon } from "lucide-react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
 import { useAuth } from "@/contexts/AuthContext";
+
+// ── Catálogo de dominios institucionales ──────────────────────────────────────
+const KNOWN_DOMAINS = [
+  // Universidades
+  { label: "UNAM", domain: "comunidad.unam.mx" },
+  { label: "Tec de Monterrey (ITESM)", domain: "tec.mx" },
+  { label: "IPN", domain: "alumno.ipn.mx" },
+  { label: "U de G", domain: "alumnos.udg.mx" },
+  { label: "UANL", domain: "uanl.edu.mx" },
+  { label: "ITAM", domain: "itam.mx" },
+  { label: "Ibero", domain: "ibero.mx" },
+  { label: "COLMEX", domain: "colmex.mx" },
+  { label: "UAQ", domain: "alumnos.uaq.mx" },
+  { label: "BUAP", domain: "alumno.buap.mx" },
+  { label: "Universidad Panamericana (UP)", domain: "up.edu.mx" },
+  { label: "UAM", domain: "alumnos.uam.mx" },
+  { label: "Anáhuac", domain: "anahuac.mx" },
+  { label: "ITESO", domain: "iteso.mx" },
+  { label: "UAEH", domain: "uaeh.edu.mx" },
+  { label: "UDLAP", domain: "udlap.mx" },
+  { label: "UASLP", domain: "alumnos.uaslp.edu.mx" },
+  { label: "UAEMex", domain: "alumno.uaemex.mx" },
+  { label: "UABC", domain: "uabc.edu.mx" },
+  { label: "USON", domain: "unison.mx" },
+  { label: "UV", domain: "estudiantes.uv.mx" },
+  { label: "UMSNH", domain: "umich.mx" },
+  { label: "UADY", domain: "alumnos.uady.mx" },
+  { label: "UNITEC", domain: "my.unitec.edu.mx" },
+  { label: "UVM", domain: "my.uvm.edu.mx" },
+  { label: "ITSON", domain: "potros.itson.edu.mx" },
+  { label: "UACH", domain: "uach.mx" },
+  { label: "UACJ", domain: "alumnos.uacj.mx" },
+  { label: "UAEM (Morelos)", domain: "uaem.edu.mx" },
+  { label: "UJAT", domain: "alumno.ujat.mx" },
+  { label: "UAA", domain: "alumnos.uaa.mx" },
+  { label: "UANE", domain: "uane.edu.mx" },
+  { label: "CIDE", domain: "cide.edu" },
+  { label: "FLACSO", domain: "flacso.edu.mx" },
+  { label: "U. de Montemorelos", domain: "um.edu.mx" },
+  { label: "La Salle", domain: "lasallistas.edu.mx" },
+  { label: "CETYS", domain: "cetys.edu.mx" },
+  { label: "UDEM", domain: "udem.edu" },
+  { label: "UDLA CDMX", domain: "udla.mx" },
+  { label: "UNACH", domain: "unach.mx" },
+  { label: "UAdeC", domain: "uadec.edu.mx" },
+  { label: "U. de Colima", domain: "ucol.mx" },
+  { label: "UAN", domain: "uan.edu.mx" },
+  { label: "UQROO", domain: "uqroo.edu.mx" },
+  { label: "UIC", domain: "uic.edu.mx" },
+  { label: "U. Marista", domain: "marista.edu.mx" },
+  // Preparatorias
+  { label: "PrepaTec", domain: "tec.mx" },
+  { label: "ENP UNAM", domain: "alumno.enp.unam.mx" },
+  { label: "CCH UNAM", domain: "alumno.cch.unam.mx" },
+  { label: "CECyT IPN", domain: "alumno.ipn.mx" },
+  { label: "Bachillerato Anáhuac", domain: "bachilleratoanahuac.edu.mx" },
+  { label: "Prepa La Salle", domain: "lasalle.mx" },
+  { label: "Colegio de Bachilleres", domain: "bachilleres.edu.mx" },
+  { label: "CONALEP", domain: "conalepmex.edu.mx" },
+  { label: "Colegio Alemán Humboldt", domain: "humboldt.edu.mx" },
+  { label: "ASF", domain: "asf.edu.mx" },
+  { label: "Eton School", domain: "eton.edu.mx" },
+  { label: "Colegio Vista Hermosa", domain: "cvh.edu.mx" },
+  { label: "Colegio Williams", domain: "colwilliams.edu.mx" },
+  { label: "Greengates School", domain: "greengates.edu.mx" },
+  { label: "Liceo Mexicano Japonés", domain: "lmj.edu.mx" },
+  { label: "Instituto Patria", domain: "patria.edu.mx" },
+  { label: "Peterson Schools", domain: "peterson.edu.mx" },
+  { label: "Prepa UVM", domain: "my.uvm.edu.mx" },
+  { label: "Prepa UNITEC", domain: "my.unitec.edu.mx" },
+  { label: "SEMS UdeG", domain: "alumnos.udg.mx" },
+  { label: "The British School", domain: "british.edu.mx" },
+  { label: "Instituto Kipling", domain: "kipling.edu.mx" },
+  { label: "DGB SEP", domain: "bachillerato.sep.gob.mx" },
+];
 
 const StatCard = ({ icon: Icon, label, value, color = "text-spot-lime" }: any) => (
   <motion.div
@@ -54,6 +129,8 @@ const AdminPage = () => {
   const [stripeTransactions, setStripeTransactions] = useState<any[]>([]);
   const [stripeStats, setStripeStats] = useState({ total: 0, revenue: 0, premium_users: 0 });
   const [loading, setLoading] = useState(true);
+  const [domainEditingId, setDomainEditingId] = useState<string | null>(null);
+  const [domainInput, setDomainInput] = useState("");
 
   useEffect(() => {
     if (isAdmin) {
@@ -70,7 +147,7 @@ const AdminPage = () => {
         (supabase as any).from("mood_checkins").select("mood").limit(500),
         (supabase as any).from("site_settings").select("*"),
         (supabase as any).from("interactions").select("id, drop_id, created_at").order("created_at", { ascending: false }).limit(1000),
-        (supabase as any).from("profiles").select("id, username, full_name, is_premium, role, subscription_status, premium_granted_by_admin, created_at").order("created_at", { ascending: false }).limit(100),
+        (supabase as any).from("profiles").select("id, username, full_name, is_premium, role, subscription_status, premium_granted_by_admin, university_domain, created_at").order("created_at", { ascending: false }).limit(100),
         (supabase as any).from("stripe_transactions").select("*").order("created_at", { ascending: false }).limit(50),
       ]);
 
@@ -181,6 +258,26 @@ const AdminPage = () => {
     if (!error) {
       setAllUsers(prev => prev.map(u => u.id === userId ? { ...u, is_premium: grant, premium_granted_by_admin: grant } : u));
       toast({ title: grant ? "✅ Premium activado" : "Premium revocado", description: grant ? "El usuario ahora tiene Spot+" : "El usuario volvió a freemium" });
+    } else {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  };
+
+  const updateUserDomain = async (userId: string, domain: string) => {
+    const trimmed = domain.trim().replace(/^@/, "").toLowerCase();
+    if (!trimmed) {
+      toast({ title: "Dominio vacío", description: "Ingresa un dominio válido.", variant: "destructive" });
+      return;
+    }
+    const { error } = await (supabase as any)
+      .from("profiles")
+      .update({ university_domain: trimmed })
+      .eq("id", userId);
+
+    if (!error) {
+      setAllUsers(prev => prev.map(u => u.id === userId ? { ...u, university_domain: trimmed } : u));
+      setDomainEditingId(null);
+      toast({ title: "Dominio actualizado", description: `@${trimmed}` });
     } else {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     }
@@ -416,42 +513,97 @@ const AdminPage = () => {
                   ))}
                 </div>
 
-                {/* Premium management */}
+                {/* Premium + domain management */}
+                {/* Datalist for domain autocomplete */}
+                <datalist id="domain-list">
+                  {KNOWN_DOMAINS.map((d) => (
+                    <option key={d.domain} value={d.domain}>{d.label}</option>
+                  ))}
+                </datalist>
+
                 <div className="space-y-2">
-                  <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Gestión de Premium (Spot+)</p>
+                  <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Gestión de Premium y Dominio (Spot+)</p>
                   {allUsers.length === 0 ? (
                     <p className="font-mono text-xs text-muted-foreground">Sin datos.</p>
                   ) : allUsers.map((u) => (
-                    <div key={u.id} className="flex items-center gap-3 rounded-xl border border-border bg-card p-3">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-sm">
-                        {u.role === 'admin' ? '👑' : u.is_premium ? '⭐' : '🎤'}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-bebas text-sm leading-none text-foreground truncate">
-                          @{u.username || "—"}
-                          {u.role === 'admin' && <span className="ml-1 text-amber-400 text-[10px]"> ADMIN</span>}
-                        </p>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          {u.is_premium ? (
-                            <span className="font-mono text-[9px] text-spot-lime">Spot+ activo</span>
-                          ) : (
-                            <span className="font-mono text-[9px] text-muted-foreground">Freemium</span>
-                          )}
-                          {u.premium_granted_by_admin && (
-                            <span className="font-mono text-[8px] text-amber-400 border border-amber-400/30 px-1 rounded">manual</span>
-                          )}
+                    <div key={u.id} className="rounded-xl border border-border bg-card p-3 space-y-2">
+                      {/* Row 1: avatar + name + premium button */}
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-sm">
+                          {u.role === 'admin' ? '👑' : u.is_premium ? '⭐' : '🎤'}
                         </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bebas text-sm leading-none text-foreground truncate">
+                            @{u.username || "—"}
+                            {u.role === 'admin' && <span className="ml-1 text-amber-400 text-[10px]"> ADMIN</span>}
+                          </p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            {u.is_premium ? (
+                              <span className="font-mono text-[9px] text-spot-lime">Spot+ activo</span>
+                            ) : (
+                              <span className="font-mono text-[9px] text-muted-foreground">Freemium</span>
+                            )}
+                            {u.premium_granted_by_admin && (
+                              <span className="font-mono text-[8px] text-amber-400 border border-amber-400/30 px-1 rounded">manual</span>
+                            )}
+                          </div>
+                        </div>
+                        {u.role !== 'admin' && (
+                          <button
+                            onClick={() => grantPremium(u.id, !u.is_premium)}
+                            className={`shrink-0 rounded-lg px-3 py-1.5 font-bebas text-[11px] transition-all ${u.is_premium
+                              ? "bg-muted text-muted-foreground hover:bg-spot-red/20 hover:text-spot-red border border-border"
+                              : "bg-spot-lime/10 text-spot-lime border border-spot-lime/30 hover:bg-spot-lime/20"
+                            }`}
+                          >
+                            {u.is_premium ? "REVOCAR" : "DAR SPOT+"}
+                          </button>
+                        )}
                       </div>
-                      {u.role !== 'admin' && (
-                        <button
-                          onClick={() => grantPremium(u.id, !u.is_premium)}
-                          className={`shrink-0 rounded-lg px-3 py-1.5 font-bebas text-[11px] transition-all ${u.is_premium
-                            ? "bg-muted text-muted-foreground hover:bg-spot-red/20 hover:text-spot-red border border-border"
-                            : "bg-spot-lime/10 text-spot-lime border border-spot-lime/30 hover:bg-spot-lime/20"
-                          }`}
-                        >
-                          {u.is_premium ? "REVOCAR" : "DAR SPOT+"}
-                        </button>
+
+                      {/* Row 2: domain display / edit */}
+                      {domainEditingId === u.id ? (
+                        <div className="flex items-center gap-2 pl-11">
+                          <input
+                            list="domain-list"
+                            value={domainInput}
+                            onChange={(e) => setDomainInput(e.target.value)}
+                            placeholder="ej. tec.mx o dominio personalizado"
+                            className="flex-1 rounded-lg border border-spot-lime/40 bg-background px-2 py-1 font-mono text-[11px] text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-spot-lime"
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") updateUserDomain(u.id, domainInput);
+                              if (e.key === "Escape") setDomainEditingId(null);
+                            }}
+                            autoFocus
+                          />
+                          <button
+                            onClick={() => updateUserDomain(u.id, domainInput)}
+                            className="flex h-6 w-6 items-center justify-center rounded-md bg-spot-lime/20 text-spot-lime hover:bg-spot-lime/40"
+                          >
+                            <CheckIcon size={12} />
+                          </button>
+                          <button
+                            onClick={() => setDomainEditingId(null)}
+                            className="flex h-6 w-6 items-center justify-center rounded-md bg-muted text-muted-foreground hover:text-foreground"
+                          >
+                            <X size={12} />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 pl-11">
+                          <span className="font-mono text-[10px] text-muted-foreground">
+                            {u.university_domain ? `@${u.university_domain}` : "Sin dominio"}
+                          </span>
+                          <button
+                            onClick={() => {
+                              setDomainEditingId(u.id);
+                              setDomainInput(u.university_domain || "");
+                            }}
+                            className="flex items-center gap-1 rounded-md border border-border px-1.5 py-0.5 font-mono text-[9px] text-muted-foreground hover:text-foreground hover:border-spot-lime/40 transition-colors"
+                          >
+                            <Pencil size={9} /> editar
+                          </button>
+                        </div>
                       )}
                     </div>
                   ))}
