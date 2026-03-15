@@ -89,6 +89,7 @@ const PremiumPage = () => {
       });
 
       if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
       if (!data?.url) throw new Error("No se recibió URL de pago de Stripe.");
 
       window.location.href = data.url;
