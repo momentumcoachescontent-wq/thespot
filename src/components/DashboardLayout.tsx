@@ -4,6 +4,7 @@ import SideNav from "./SideNav";
 import BottomNav from "./BottomNav";
 import SosButton from "./SosButton";
 import SosModal from "./SosModal";
+import SpotCheckInButton from "./SpotCheckInButton";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -99,7 +100,8 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       {/* Bottom nav — only on mobile */}
       <div className="md:hidden">
         <BottomNav />
-        {/* SOS floating button only on mobile (desktop uses sidebar button) */}
+        {/* Floating buttons (mobile only) */}
+        <SpotCheckInButton />
         <SosButton onClick={() => setIsSosOpen(true)} />
       </div>
 

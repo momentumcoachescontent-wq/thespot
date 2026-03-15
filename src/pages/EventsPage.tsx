@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { CalendarDays, Plus, MapPin, Users, Clock, X, Check, Share2 } from "lucide-react";
+import { Plus, MapPin, Users, Clock, X, Check, Share2, CalendarPlus } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -119,6 +119,21 @@ const EventsPage = () => {
     } catch (e) {
       toast({ title: "Error", description: "Ocurrió un error al actualizar tu asistencia.", variant: "destructive" });
     }
+  };
+
+  const buildGCalUrl = (ev: SpotEvent) => {
+    const toGCalDate = (iso: string) =>
+      new Date(iso).toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+    const start = toGCalDate(ev.event_date);
+    const end = toGCalDate(new Date(new Date(ev.event_date).getTime() + 60 * 60 * 1000).toISOString());
+    const params = new URLSearchParams({
+      action: "TEMPLATE",
+      text: ev.title,
+      dates: `${start}/${end}`,
+      details: ev.description || "",
+      location: ev.location_text || ev.spots?.name || "Campus",
+    });
+    return `https://calendar.google.com/calendar/render?${params}`;
   };
 
   const handleShare = (ev: SpotEvent) => {
@@ -260,8 +275,17 @@ const EventsPage = () => {
                       whileTap={{ scale: 0.9 }}
                       onClick={() => handleShare(ev)}
                       className="flex items-center justify-center h-8 w-8 rounded-full border border-border text-muted-foreground hover:bg-muted/30"
+                      title="Compartir por WhatsApp"
                     >
                       <Share2 size={12} />
+                    </motion.button>
+                    <motion.button
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() => window.open(buildGCalUrl(ev), "_blank")}
+                      className="flex items-center justify-center h-8 w-8 rounded-full border border-border text-muted-foreground hover:border-spot-lime/50 hover:text-spot-lime transition-colors"
+                      title="Agregar a Google Calendar"
+                    >
+                      <CalendarPlus size={12} />
                     </motion.button>
                   </div>
                 </div>
