@@ -6,23 +6,23 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 
-const FEATURES_FREE = [
+const buildFeaturesFreemium = (recSec: number) => [
   { text: "Escuchar Drops del campus", ok: true },
-  { text: "Grabar Drops (duración: 5 min)", ok: true },
+  { text: `Grabar Drops (máx. ${recSec} seg)`, ok: true },
   { text: "Reacciones con emojis", ok: true },
   { text: "Escuchar Spotcasts", ok: true },
   { text: "Mapa de actividad universitaria", ok: true },
   { text: "Botón SOS", ok: true },
   { text: "Crear Spotcasts (podcasts)", ok: false },
-  { text: "Drops de hasta 15 min", ok: false },
+  { text: "Drops de hasta 60 seg", ok: false },
   { text: "Prioridad en el ranking", ok: false },
   { text: "Badge Spot+ en perfil", ok: false },
 ];
 
-const FEATURES_PREMIUM = [
+const buildFeaturesPremium = (recSec: number) => [
   { text: "Todo lo de Freemium" },
   { text: "Crear Spotcasts ilimitados" },
-  { text: "Drops de hasta 15 min (configurable por admin)" },
+  { text: `Drops de hasta ${recSec} seg` },
   { text: "Prioridad en el ranking campus" },
   { text: "Badge exclusivo Spot+ en perfil" },
   { text: "Acceso anticipado a nuevas funciones" },
@@ -36,7 +36,7 @@ const PremiumPage = () => {
 
   const [plan, setPlan] = useState<"monthly" | "yearly">("monthly");
   const [loading, setLoading] = useState(false);
-  const [dropDurations, setDropDurations] = useState({ freemium: 5, premium: 15 });
+  const [recordingLimits, setRecordingLimits] = useState({ freemium: 30, premium: 60 });
   const [displayPrices, setDisplayPrices] = useState({ monthly: 99, yearly: 999 });
 
   const success = searchParams.get("success") === "true";
@@ -57,14 +57,14 @@ const PremiumPage = () => {
       const { data } = await (supabase as any)
         .from("site_settings")
         .select("key, value")
-        .in("key", ["drop_duration_freemium", "drop_duration_premium", "price_display_monthly", "price_display_yearly"]);
+        .in("key", ["recording_limit_freemium", "recording_limit_premium", "price_display_monthly", "price_display_yearly"]);
 
       if (data) {
         const map: Record<string, number> = {};
         data.forEach((s: any) => { map[s.key] = Number(s.value); });
-        setDropDurations({
-          freemium: map["drop_duration_freemium"] || 5,
-          premium: map["drop_duration_premium"] || 15,
+        setRecordingLimits({
+          freemium: map["recording_limit_freemium"] || 30,
+          premium: map["recording_limit_premium"] || 60,
         });
         setDisplayPrices({
           monthly: map["price_display_monthly"] || 99,
@@ -203,12 +203,12 @@ const PremiumPage = () => {
               <p className="font-bebas text-4xl text-foreground">GRATIS</p>
             </div>
             <div className="space-y-2">
-              {FEATURES_FREE.map((f, i) => (
+              {buildFeaturesFreemium(recordingLimits.freemium).map((f, i) => (
                 <div key={i} className={`flex items-center gap-2 font-mono text-[11px] ${f.ok ? "text-foreground" : "text-muted-foreground/40 line-through"}`}>
                   <span className={`flex h-4 w-4 items-center justify-center rounded-full ${f.ok ? "bg-muted" : ""}`}>
                     {f.ok ? <Check size={10} className="text-spot-lime" /> : <span className="text-[8px]">✕</span>}
                   </span>
-                  {f.text.replace("5 min", `${dropDurations.freemium} min`)}
+                  {f.text}
                 </div>
               ))}
             </div>
@@ -237,12 +237,12 @@ const PremiumPage = () => {
               )}
             </div>
             <div className="space-y-2">
-              {FEATURES_PREMIUM.map((f, i) => (
+              {buildFeaturesPremium(recordingLimits.premium).map((f, i) => (
                 <div key={i} className="flex items-center gap-2 font-mono text-[11px] text-foreground">
                   <span className="flex h-4 w-4 items-center justify-center rounded-full bg-spot-lime/20">
                     <Check size={10} className="text-spot-lime" />
                   </span>
-                  {f.text.replace("15 min", `${dropDurations.premium} min`)}
+                  {f.text}
                 </div>
               ))}
             </div>
@@ -268,7 +268,7 @@ const PremiumPage = () => {
         <div className="grid grid-cols-3 gap-3">
           {[
             { icon: Mic, label: "Spotcasts", desc: "Crea tu propio podcast de campus" },
-            { icon: Clock, label: `${dropDurations.premium} min`, desc: "Drops más largos para más contexto" },
+            { icon: Clock, label: `${recordingLimits.premium} seg`, desc: "Drops más largos para más contexto" },
             { icon: Headphones, label: "Sin límites", desc: "Escucha y crea sin restricciones" },
           ].map(({ icon: Icon, label, desc }) => (
             <div key={label} className="rounded-2xl border border-border bg-card p-4 text-center space-y-2">

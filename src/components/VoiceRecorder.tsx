@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 
 interface VoiceRecorderProps {
   maxDuration?: number;
-  onRecorded: (blob: Blob) => void;
+  onRecorded: (blob: Blob, duration: number) => void;
   onCancel: () => void;
 }
 
@@ -150,7 +150,7 @@ const VoiceRecorder = ({ maxDuration = 60, onRecorded, onCancel }: VoiceRecorder
   };
 
   const handleSend = () => {
-    if (audioBlob) onRecorded(audioBlob);
+    if (audioBlob) onRecorded(audioBlob, elapsed);
   };
 
   const formatTime = (s: number) =>

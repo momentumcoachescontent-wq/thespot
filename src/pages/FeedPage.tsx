@@ -20,6 +20,7 @@ const FeedPage = () => {
   const [loading, setLoading] = useState(true);
   const [currentSpot, setCurrentSpot] = useState<any>(null);
   const [topUsers, setTopUsers] = useState<{ username: string; count: number }[]>([]);
+  const [recordingLimits, setRecordingLimits] = useState({ freemium: 30, premium: 60 });
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -82,6 +83,24 @@ const FeedPage = () => {
   };
 
   useEffect(() => {
+    const loadRecordingLimits = async () => {
+      const { data } = await (supabase as any)
+        .from("site_settings")
+        .select("key, value")
+        .in("key", ["recording_limit_freemium", "recording_limit_premium"]);
+      if (data?.length) {
+        const map: Record<string, number> = {};
+        data.forEach((s: any) => { map[s.key] = Number(s.value); });
+        setRecordingLimits({
+          freemium: map["recording_limit_freemium"] || 30,
+          premium: map["recording_limit_premium"] || 60,
+        });
+      }
+    };
+    loadRecordingLimits();
+  }, []);
+
+  useEffect(() => {
     fetchDrops();
     const channel = (supabase as any)
       .channel("drops-feed-global")
@@ -98,7 +117,7 @@ const FeedPage = () => {
     return () => { channel.unsubscribe(); };
   }, [user, resolvedDomain]); // Re-ejecutar si cambia el filtro
 
-  const handleRecorded = async (blob: Blob) => {
+  const handleRecorded = async (blob: Blob, duration: number) => {
     try {
       setShowRecorder(false);
       toast({ title: "Subiendo drop...", description: "Transformando miedo en acción." });
@@ -167,7 +186,7 @@ const FeedPage = () => {
         spot_id: spotId,
         author_id: user.id,
         audio_url: publicUrl,
-        duration_seconds: Math.floor(blob.size / 15000) || 10,
+        duration_seconds: duration || 1,
         expires_at: expiresAt,
         is_flagged: isModerationEnabled // If enabled, we flag it initially for processing
       }).select("id").single();
@@ -276,7 +295,11 @@ const FeedPage = () => {
 
       <AnimatePresence>
         {showRecorder && (
-          <VoiceRecorder maxDuration={60} onRecorded={handleRecorded} onCancel={() => setShowRecorder(false)} />
+          <VoiceRecorder
+            maxDuration={(isPremium || isAdmin) ? recordingLimits.premium : recordingLimits.freemium}
+            onRecorded={handleRecorded}
+            onCancel={() => setShowRecorder(false)}
+          />
         )}
       </AnimatePresence>
     </div>
