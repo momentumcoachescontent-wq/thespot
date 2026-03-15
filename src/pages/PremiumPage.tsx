@@ -36,6 +36,7 @@ const PremiumPage = () => {
 
   const [plan, setPlan] = useState<"monthly" | "yearly">("monthly");
   const [loading, setLoading] = useState(false);
+  const [loadingPortal, setLoadingPortal] = useState(false);
   const [recordingLimits, setRecordingLimits] = useState({ freemium: 30, premium: 60 });
   const [displayPrices, setDisplayPrices] = useState({ monthly: 99, yearly: 999 });
 
@@ -120,9 +121,42 @@ const PremiumPage = () => {
   };
 
   const handleManageSubscription = async () => {
-    toast({ title: "Redirigiendo al portal de Stripe...", duration: 2000 });
-    // If you add a customer-portal edge function in the future, invoke it here
-    toast({ title: "Portal no configurado", description: "Contacta a soporte para gestionar tu suscripción.", variant: "default" });
+    setLoadingPortal(true);
+    try {
+      const { data: { session }, error: sessionError } = await supabase.auth.refreshSession();
+      if (sessionError || !session?.access_token) {
+        toast({ title: "Sesión expirada", description: "Inicia sesión de nuevo.", variant: "destructive" });
+        navigate("/");
+        return;
+      }
+
+      const response = await fetch(
+        `https://inchlsvnvdotbxqnsxmd.supabase.co/functions/v1/customer-portal`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${session.access_token}`,
+            "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImluY2hsc3ZudmRvdGJ4cW5zeG1kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3NzIyMDUsImV4cCI6MjA4ODM0ODIwNX0.Q0Mfze90R00FdgNTF67bwy9x24aDbllA0QbeqKVkd-E",
+          },
+          body: JSON.stringify({}),
+        }
+      );
+
+      const data = await response.json();
+      if (!response.ok || data?.error) throw new Error(data?.error || `Error ${response.status}`);
+      if (!data?.url) throw new Error("No se recibió URL del portal de Stripe.");
+
+      window.location.href = data.url;
+    } catch (err: any) {
+      toast({
+        title: "Error al abrir el portal",
+        description: err.message || "Intenta de nuevo o contacta soporte.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingPortal(false);
+    }
   };
 
   return (
@@ -164,9 +198,10 @@ const PremiumPage = () => {
             {!isAdmin && (
               <button
                 onClick={handleManageSubscription}
-                className="rounded-lg border border-border px-3 py-1.5 font-mono text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+                disabled={loadingPortal}
+                className="rounded-lg border border-border px-3 py-1.5 font-mono text-[10px] text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
               >
-                Gestionar
+                {loadingPortal ? "..." : "Gestionar"}
               </button>
             )}
           </motion.div>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { Shield, LogOut, Plus, Trash2, Phone, User, X, Pencil, Check, Lock, School, AtSign } from "lucide-react";
+import { Shield, LogOut, Plus, Trash2, Phone, User, X, Pencil, Check, Lock, School, AtSign, Bell } from "lucide-react";
+import PushNotificationToggle from "@/components/PushNotificationToggle";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
@@ -252,6 +253,15 @@ const ProfilePage = () => {
               </button>
             </div>
           )}
+        </div>
+
+        {/* Notifications Section */}
+        <div className="mt-6 rounded-2xl border border-border bg-card p-5">
+          <h3 className="mb-4 flex items-center gap-2 font-bebas text-xl text-foreground">
+            <Bell size={18} className="text-spot-lime" />
+            NOTIFICACIONES
+          </h3>
+          <PushNotificationToggle />
         </div>
 
         {/* SOS PIN Section */}

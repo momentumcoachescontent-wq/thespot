@@ -1,18 +1,19 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Mic, MapPin, Headphones, CalendarDays, User, LayoutDashboard, Shield, AlertTriangle, LogOut, Crown } from "lucide-react";
+import { Mic, MapPin, Headphones, CalendarDays, User, LayoutDashboard, Shield, AlertTriangle, LogOut, Crown, MessageSquare } from "lucide-react";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 
 import { useAuth } from "@/contexts/AuthContext";
 
 const NAV_ITEMS = [
-  { path: "/home", icon: LayoutDashboard, label: "Dashboard" },
-  { path: "/feed", icon: Mic, label: "Canal" },
-  { path: "/map", icon: MapPin, label: "Mapa" },
-  { path: "/podcast", icon: Headphones, label: "Podcast" },
-  { path: "/events", icon: CalendarDays, label: "Eventos" },
-  { path: "/profile", icon: User, label: "Perfil" },
+  { path: "/home",     icon: LayoutDashboard, label: "Dashboard" },
+  { path: "/feed",     icon: Mic,             label: "Canal" },
+  { path: "/map",      icon: MapPin,           label: "Mapa" },
+  { path: "/podcast",  icon: Headphones,       label: "Podcast" },
+  { path: "/messages", icon: MessageSquare,    label: "Mensajes" },
+  { path: "/events",   icon: CalendarDays,     label: "Eventos" },
+  { path: "/profile",  icon: User,             label: "Perfil" },
 ];
 
 interface SideNavProps {

@@ -84,6 +84,18 @@ serve(async (req) => {
       );
     }
 
+    // Auto-resolve Product ID → Price ID if admin accidentally saved a prod_ ID
+    if (priceId.startsWith("prod_")) {
+      const product = await stripe.products.retrieve(priceId);
+      const defaultPrice = (product as any).default_price;
+      if (!defaultPrice) {
+        throw new Error(
+          `El producto de Stripe (${priceId}) no tiene un precio predeterminado. Configura un precio predeterminado en Stripe Dashboard o usa directamente el Price ID (price_...) en Admin Panel → Stripe.`
+        );
+      }
+      priceId = typeof defaultPrice === "string" ? defaultPrice : (defaultPrice as any).id;
+    }
+
     // Fetch or create Stripe customer
     const { data: profile } = await adminSupabase
       .from("profiles")

@@ -19,6 +19,8 @@ import DataDeletionPage from "./pages/DataDeletionPage";
 import NotFound from "./pages/NotFound";
 import ProtectedLayout from "./components/ProtectedLayout";
 import PremiumPage from "./pages/PremiumPage";
+import MessagesPage from "./pages/MessagesPage";
+import ChatPage from "./pages/ChatPage";
 
 const queryClient = new QueryClient();
 
@@ -47,6 +49,8 @@ const App = () => (
                 <Route path="/profile" element={<ProfilePage />} />
                 <Route path="/admin" element={<AdminPage />} />
                 <Route path="/premium" element={<PremiumPage />} />
+                <Route path="/messages" element={<MessagesPage />} />
+                <Route path="/messages/:conversationId" element={<ChatPage />} />
               </Route>
 
               <Route path="*" element={<NotFound />} />

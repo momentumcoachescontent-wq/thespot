@@ -220,6 +220,17 @@ const FeedPage = () => {
         toast({ title: "Drop activo 🎙️", description: `Tu voz es ahora parte del presente. Desaparecerá en ${dropMinutes} minutos.` });
       }
 
+      // Fire-and-forget: notify campus users about new drop
+      supabase.functions.invoke("send-push", {
+        body: {
+          university_domain: domain,
+          title: "🎙️ Nuevo drop en tu campus",
+          body: `@${profile?.username} acaba de publicar`,
+          url: "/feed",
+          tag: "campus-drop",
+        },
+      }).catch(() => {});
+
       fetchDrops();
     } catch (error: any) {
       toast({ title: "Error en la transmisión", description: error.message, variant: "destructive" });
