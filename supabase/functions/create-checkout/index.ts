@@ -1,7 +1,7 @@
 // Edge Function: create-checkout
 // Creates a Stripe Checkout Session for Spot+ subscription.
-// Requires STRIPE_SECRET_KEY and STRIPE_PRICE_ID in Supabase secrets.
-// Optional: STRIPE_PRICE_ID_YEARLY for annual plan.
+// Price IDs can be set via Supabase secrets (STRIPE_PRICE_ID / STRIPE_PRICE_ID_YEARLY)
+// or configured from the Admin Panel → Stripe tab (stored in site_settings).
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -38,18 +38,33 @@ serve(async (req) => {
 
     const { plan = "monthly", success_url, cancel_url } = await req.json();
 
-    // Determine price ID
-    const priceId = plan === "yearly"
-      ? Deno.env.get("STRIPE_PRICE_ID_YEARLY") || Deno.env.get("STRIPE_PRICE_ID")
-      : Deno.env.get("STRIPE_PRICE_ID");
-
-    if (!priceId) throw new Error("STRIPE_PRICE_ID not configured");
-
-    // Admin client to read/write profile data
+    // Admin client — used for profile read/write and site_settings fallback
     const adminSupabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
+
+    // Determine price ID: env vars take precedence, then site_settings fallback
+    let priceId: string | undefined = plan === "yearly"
+      ? Deno.env.get("STRIPE_PRICE_ID_YEARLY") || Deno.env.get("STRIPE_PRICE_ID")
+      : Deno.env.get("STRIPE_PRICE_ID");
+
+    if (!priceId) {
+      const settingKey = plan === "yearly" ? "stripe_price_id_yearly" : "stripe_price_id_monthly";
+      const { data: settingRow } = await adminSupabase
+        .from("site_settings")
+        .select("value")
+        .eq("key", settingKey)
+        .single();
+      const val = settingRow?.value;
+      if (typeof val === "string" && val.startsWith("price_")) priceId = val;
+    }
+
+    if (!priceId) {
+      throw new Error(
+        "STRIPE_PRICE_ID not configured. Add it in Supabase secrets or in Admin Panel → Stripe → Configuración de Precios."
+      );
+    }
 
     // Fetch or create Stripe customer
     const { data: profile } = await adminSupabase

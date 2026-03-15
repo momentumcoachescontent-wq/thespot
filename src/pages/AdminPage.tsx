@@ -115,7 +115,12 @@ const AdminPage = () => {
     ai_model_provider: "openai",
     drop_duration_freemium: 5,
     drop_duration_premium: 15,
+    stripe_price_id_monthly: "",
+    stripe_price_id_yearly: "",
+    price_display_monthly: 99,
+    price_display_yearly: 999,
   });
+  const [savingPrices, setSavingPrices] = useState(false);
   const [stats, setStats] = useState({ users: 0, drops: 0, incidents: 0, podcasts: 0 });
   const [dropsByDay, setDropsByDay] = useState<any[]>([]);
   const [engagementByDay, setEngagementByDay] = useState<any[]>([]);
@@ -298,6 +303,27 @@ const AdminPage = () => {
       toast({ title: "Error guardando duraciones", variant: "destructive" });
     } else {
       toast({ title: "✅ Duraciones actualizadas", description: `Freemium: ${freemiumVal}min · Premium: ${premiumVal}min` });
+    }
+  };
+
+  const saveStripeConfig = async () => {
+    setSavingPrices(true);
+    try {
+      const rows = [
+        { key: "stripe_price_id_monthly", value: settings.stripe_price_id_monthly?.trim() || "" },
+        { key: "stripe_price_id_yearly",  value: settings.stripe_price_id_yearly?.trim() || "" },
+        { key: "price_display_monthly",   value: Number(settings.price_display_monthly) || 99 },
+        { key: "price_display_yearly",    value: Number(settings.price_display_yearly) || 999 },
+      ];
+      const results = await Promise.all(
+        rows.map((r) => (supabase as any).from("site_settings").upsert({ key: r.key, value: r.value }))
+      );
+      if (results.some((r: any) => r.error)) throw new Error("Error guardando configuración");
+      toast({ title: "Configuración de precios guardada" });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setSavingPrices(false);
     }
   };
 
@@ -919,6 +945,77 @@ const AdminPage = () => {
                     className="flex items-center gap-2 rounded-lg bg-spot-lime/10 px-4 py-2 font-mono text-[10px] text-spot-lime border border-spot-lime/30 hover:bg-spot-lime/20 transition-all uppercase tracking-widest"
                   >
                     <Zap size={12} /> Probar Conexión a Stripe
+                  </button>
+                </div>
+
+                {/* Price config */}
+                <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
+                  <h4 className="font-bebas text-lg text-foreground flex items-center gap-2">
+                    <Crown size={16} className="text-amber-400" />
+                    Configuración de Precios Spot+
+                  </h4>
+                  <p className="font-mono text-[10px] text-muted-foreground">
+                    Ingresa los IDs de precio de Stripe y los montos que se muestran a los usuarios. Los IDs se usan para el checkout; los montos son solo display.
+                  </p>
+
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    {/* Monthly */}
+                    <div className="space-y-2">
+                      <p className="font-mono text-[9px] uppercase tracking-widest text-spot-lime">Plan Mensual</p>
+                      <div>
+                        <label className="font-mono text-[9px] text-muted-foreground">Stripe Price ID</label>
+                        <input
+                          type="text"
+                          placeholder="price_1ABC..."
+                          value={settings.stripe_price_id_monthly || ""}
+                          onChange={(e) => setSettings((s: any) => ({ ...s, stripe_price_id_monthly: e.target.value }))}
+                          className="w-full mt-1 rounded-lg border border-border bg-black/40 px-3 py-2 font-mono text-[11px] text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-spot-lime"
+                        />
+                      </div>
+                      <div>
+                        <label className="font-mono text-[9px] text-muted-foreground">Precio display (MXN)</label>
+                        <input
+                          type="number"
+                          min={0}
+                          value={settings.price_display_monthly || 99}
+                          onChange={(e) => setSettings((s: any) => ({ ...s, price_display_monthly: e.target.value }))}
+                          className="w-full mt-1 rounded-lg border border-border bg-black/40 px-3 py-2 font-mono text-[11px] text-foreground focus:outline-none focus:ring-1 focus:ring-spot-lime"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Yearly */}
+                    <div className="space-y-2">
+                      <p className="font-mono text-[9px] uppercase tracking-widest text-spot-cyan">Plan Anual</p>
+                      <div>
+                        <label className="font-mono text-[9px] text-muted-foreground">Stripe Price ID</label>
+                        <input
+                          type="text"
+                          placeholder="price_1DEF..."
+                          value={settings.stripe_price_id_yearly || ""}
+                          onChange={(e) => setSettings((s: any) => ({ ...s, stripe_price_id_yearly: e.target.value }))}
+                          className="w-full mt-1 rounded-lg border border-border bg-black/40 px-3 py-2 font-mono text-[11px] text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-spot-lime"
+                        />
+                      </div>
+                      <div>
+                        <label className="font-mono text-[9px] text-muted-foreground">Precio display (MXN)</label>
+                        <input
+                          type="number"
+                          min={0}
+                          value={settings.price_display_yearly || 999}
+                          onChange={(e) => setSettings((s: any) => ({ ...s, price_display_yearly: e.target.value }))}
+                          className="w-full mt-1 rounded-lg border border-border bg-black/40 px-3 py-2 font-mono text-[11px] text-foreground focus:outline-none focus:ring-1 focus:ring-spot-lime"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={saveStripeConfig}
+                    disabled={savingPrices}
+                    className="flex items-center gap-2 rounded-lg bg-spot-lime/10 px-4 py-2 font-mono text-[10px] text-spot-lime border border-spot-lime/30 hover:bg-spot-lime/20 transition-all uppercase tracking-widest disabled:opacity-50"
+                  >
+                    {savingPrices ? <><Clock size={12} className="animate-spin" /> Guardando...</> : <><CheckCircle size={12} /> Guardar Precios</>}
                   </button>
                 </div>
 

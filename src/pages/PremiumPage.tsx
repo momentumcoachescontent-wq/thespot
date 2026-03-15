@@ -37,6 +37,7 @@ const PremiumPage = () => {
   const [plan, setPlan] = useState<"monthly" | "yearly">("monthly");
   const [loading, setLoading] = useState(false);
   const [dropDurations, setDropDurations] = useState({ freemium: 5, premium: 15 });
+  const [displayPrices, setDisplayPrices] = useState({ monthly: 99, yearly: 999 });
 
   const success = searchParams.get("success") === "true";
   const canceled = searchParams.get("canceled") === "true";
@@ -52,11 +53,11 @@ const PremiumPage = () => {
   }, [success, canceled]);
 
   useEffect(() => {
-    const fetchDurations = async () => {
+    const fetchSettings = async () => {
       const { data } = await (supabase as any)
         .from("site_settings")
         .select("key, value")
-        .in("key", ["drop_duration_freemium", "drop_duration_premium"]);
+        .in("key", ["drop_duration_freemium", "drop_duration_premium", "price_display_monthly", "price_display_yearly"]);
 
       if (data) {
         const map: Record<string, number> = {};
@@ -65,9 +66,13 @@ const PremiumPage = () => {
           freemium: map["drop_duration_freemium"] || 5,
           premium: map["drop_duration_premium"] || 15,
         });
+        setDisplayPrices({
+          monthly: map["price_display_monthly"] || 99,
+          yearly: map["price_display_yearly"] || 999,
+        });
       }
     };
-    fetchDurations();
+    fetchSettings();
   }, []);
 
   const handleSubscribe = async () => {
@@ -221,13 +226,13 @@ const PremiumPage = () => {
               <p className="font-mono text-[10px] uppercase tracking-widest text-spot-lime">Spot+</p>
               {plan === "monthly" ? (
                 <div>
-                  <p className="font-bebas text-4xl text-foreground">$99<span className="text-lg text-muted-foreground">/mes</span></p>
+                  <p className="font-bebas text-4xl text-foreground">${displayPrices.monthly}<span className="text-lg text-muted-foreground">/mes</span></p>
                   <p className="font-mono text-[9px] text-muted-foreground">MXN · cancela cuando quieras</p>
                 </div>
               ) : (
                 <div>
-                  <p className="font-bebas text-4xl text-foreground">$999<span className="text-lg text-muted-foreground">/año</span></p>
-                  <p className="font-mono text-[9px] text-spot-lime">Ahorras $189 MXN vs mensual</p>
+                  <p className="font-bebas text-4xl text-foreground">${displayPrices.yearly}<span className="text-lg text-muted-foreground">/año</span></p>
+                  <p className="font-mono text-[9px] text-spot-lime">Ahorras ${Math.max(0, displayPrices.monthly * 12 - displayPrices.yearly)} MXN vs mensual</p>
                 </div>
               )}
             </div>
