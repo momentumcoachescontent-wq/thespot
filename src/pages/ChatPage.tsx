@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Mic, Send, RefreshCw } from "lucide-react";
+import { ArrowLeft, Mic, RefreshCw, Crown, Clock } from "lucide-react";
 import { AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -15,14 +15,11 @@ const ChatPage = () => {
   const { messages, loading } = useMessages(conversationId);
 
   const [otherUser, setOtherUser] = useState<{ id: string; username: string; avatar_emoji: string } | null>(null);
-  const [text, setText] = useState("");
-  const [sending, setSending] = useState(false);
   const [showVoice, setShowVoice] = useState(false);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const maxVoiceDuration = (isPremium || isAdmin) ? 60 : 30;
 
-  // Load other participant's profile
   useEffect(() => {
     if (!conversationId || !user) return;
     (async () => {
@@ -41,43 +38,9 @@ const ChatPage = () => {
     })();
   }, [conversationId, user]);
 
-  // Auto-scroll on new messages
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
-
-  const handleSendText = async () => {
-    const content = text.trim();
-    if (!content || !user || !conversationId) return;
-    setSending(true);
-    setText("");
-    try {
-      const { error } = await (supabase as any).from("messages").insert({
-        conversation_id: conversationId,
-        sender_id: user.id,
-        message_type: "text",
-        content,
-      });
-      if (error) throw error;
-
-      // Push notification to other user
-      if (otherUser) {
-        supabase.functions.invoke("send-push", {
-          body: {
-            user_id: otherUser.id,
-            title: `💬 @${profile?.username}`,
-            body: content.slice(0, 80),
-            url: `/messages/${conversationId}`,
-            tag: `dm-${conversationId}`,
-          },
-        }).catch(() => {});
-      }
-    } catch (err) {
-      console.error("Send text error:", err);
-    } finally {
-      setSending(false);
-    }
-  };
 
   const handleVoiceSent = () => {
     setShowVoice(false);
@@ -94,6 +57,38 @@ const ChatPage = () => {
     }
   };
 
+  // Premium gate
+  if (!isPremium && !isAdmin) {
+    return (
+      <div className="flex h-screen flex-col bg-background">
+        <div className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-xl">
+          <div className="mx-auto flex max-w-2xl items-center gap-3 px-4 py-3">
+            <button onClick={() => navigate("/messages")} className="text-muted-foreground hover:text-foreground">
+              <ArrowLeft size={20} />
+            </button>
+          </div>
+        </div>
+        <div className="flex flex-1 flex-col items-center justify-center px-8 text-center gap-6">
+          <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-spot-lime/10">
+            <Crown size={36} className="text-spot-lime" />
+          </div>
+          <div>
+            <h2 className="font-bebas text-3xl text-foreground tracking-wider">FUNCIÓN SPOT+</h2>
+            <p className="mt-2 font-mono text-xs text-muted-foreground max-w-xs">
+              Los mensajes de voz privados son exclusivos de Spot+. Únete para hablar con cualquier persona de tu campus.
+            </p>
+          </div>
+          <button
+            onClick={() => navigate("/premium")}
+            className="rounded-xl bg-spot-lime px-6 py-3 font-bebas text-lg text-black shadow-[0_0_20px_rgba(200,255,0,0.3)] transition-all hover:brightness-110"
+          >
+            VER PLANES SPOT+
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen flex-col bg-background">
       {/* Header */}
@@ -108,6 +103,10 @@ const ChatPage = () => {
               <p className="font-mono text-[11px] text-foreground">@{otherUser.username}</p>
             </>
           )}
+          <div className="ml-auto flex items-center gap-1.5 rounded-full bg-amber-400/10 border border-amber-400/20 px-2.5 py-1">
+            <Clock size={10} className="text-amber-400" />
+            <span className="font-mono text-[8px] text-amber-400 uppercase tracking-widest">Efímero</span>
+          </div>
         </div>
       </div>
 
@@ -119,8 +118,12 @@ const ChatPage = () => {
               <RefreshCw className="h-6 w-6 animate-spin text-spot-lime" />
             </div>
           ) : messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 text-center">
-              <p className="font-mono text-xs text-muted-foreground">Di algo 👋</p>
+            <div className="flex flex-col items-center justify-center py-20 text-center gap-3">
+              <span className="text-4xl">🎙️</span>
+              <p className="font-mono text-xs text-muted-foreground">Graba un mensaje de voz para empezar</p>
+              <p className="font-mono text-[9px] text-muted-foreground/40 max-w-[200px] leading-relaxed">
+                Los audios se eliminan automáticamente a las 00:00 de cada día
+              </p>
             </div>
           ) : (
             messages.map((msg) => (
@@ -131,7 +134,7 @@ const ChatPage = () => {
         </div>
       </div>
 
-      {/* Input area */}
+      {/* Input area - audio only */}
       <div className="border-t border-border bg-background/95 backdrop-blur-xl pb-safe">
         <div className="mx-auto max-w-2xl px-4 py-3 space-y-2">
           <AnimatePresence>
@@ -146,27 +149,15 @@ const ChatPage = () => {
           </AnimatePresence>
 
           {!showVoice && (
-            <div className="flex items-end gap-2">
+            <div className="flex items-center gap-3">
+              <p className="flex-1 font-mono text-[9px] text-muted-foreground/40 leading-relaxed">
+                Solo mensajes de voz · se borran a las 00:00
+              </p>
               <button
                 onClick={() => setShowVoice(true)}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border text-muted-foreground hover:text-spot-lime hover:border-spot-lime/40 transition-colors"
+                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-spot-lime text-black shadow-[0_0_15px_rgba(200,255,0,0.3)] transition-all hover:brightness-110 active:scale-95"
               >
-                <Mic size={18} />
-              </button>
-              <textarea
-                rows={1}
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendText(); } }}
-                placeholder="Escribe un mensaje..."
-                className="flex-1 resize-none rounded-xl border border-border bg-black/40 px-3 py-2 font-mono text-[11px] text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-spot-lime"
-              />
-              <button
-                onClick={handleSendText}
-                disabled={!text.trim() || sending}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-spot-lime text-black shadow-[0_0_15px_rgba(200,255,0,0.2)] disabled:opacity-40 disabled:cursor-not-allowed transition-all hover:brightness-110"
-              >
-                <Send size={16} />
+                <Mic size={20} />
               </button>
             </div>
           )}

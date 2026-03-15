@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { MessageSquare, Search, ArrowLeft, RefreshCw, Plus, X } from "lucide-react";
+import { Search, ArrowLeft, RefreshCw, Plus, X, Crown } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -9,7 +9,7 @@ import ConversationItem from "@/components/dm/ConversationItem";
 
 const MessagesPage = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isPremium, isAdmin } = useAuth();
   const { conversations, loading } = useConversations();
 
   const [showSearch, setShowSearch] = useState(false);
@@ -41,6 +41,38 @@ const MessagesPage = () => {
     setSearchResults([]);
     navigate(`/messages/${data}`);
   };
+
+  if (!isPremium && !isAdmin) {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-xl">
+          <div className="mx-auto flex max-w-2xl items-center gap-3 px-4 py-3">
+            <button onClick={() => navigate(-1)} className="text-muted-foreground hover:text-foreground">
+              <ArrowLeft size={20} />
+            </button>
+            <h1 className="font-bebas text-2xl tracking-wider text-foreground">MENSAJES</h1>
+          </div>
+        </div>
+        <div className="flex flex-col items-center justify-center min-h-[70vh] px-8 text-center gap-6">
+          <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-spot-lime/10">
+            <Crown size={36} className="text-spot-lime" />
+          </div>
+          <div>
+            <h2 className="font-bebas text-3xl text-foreground tracking-wider">FUNCIÓN SPOT+</h2>
+            <p className="mt-2 font-mono text-xs text-muted-foreground max-w-xs">
+              Los mensajes de voz privados son exclusivos de Spot+. Únete para hablar con cualquier persona de tu campus.
+            </p>
+          </div>
+          <button
+            onClick={() => navigate("/premium")}
+            className="rounded-xl bg-spot-lime px-6 py-3 font-bebas text-lg text-black shadow-[0_0_20px_rgba(200,255,0,0.3)] transition-all hover:brightness-110"
+          >
+            VER PLANES SPOT+
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background pb-20">
