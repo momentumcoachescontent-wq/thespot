@@ -82,14 +82,29 @@ const PremiumPage = () => {
     }
     setLoading(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const { data, error } = await supabase.functions.invoke("create-checkout", {
-        body: { plan },
-        headers: { authorization: `Bearer ${session?.access_token}` },
-      });
+      // Refresh session to ensure token is valid before invoking
+      const { data: { session }, error: sessionError } = await supabase.auth.refreshSession();
+      if (sessionError || !session?.access_token) {
+        toast({ title: "Sesión expirada", description: "Inicia sesión de nuevo.", variant: "destructive" });
+        navigate("/");
+        return;
+      }
 
-      if (error) throw new Error(error.message);
-      if (data?.error) throw new Error(data.error);
+      const response = await fetch(
+        `https://inchlsvnvdotbxqnsxmd.supabase.co/functions/v1/create-checkout`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${session.access_token}`,
+            "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImluY2hsc3ZudmRvdGJ4cW5zeG1kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3NzIyMDUsImV4cCI6MjA4ODM0ODIwNX0.Q0Mfze90R00FdgNTF67bwy9x24aDbllA0QbeqKVkd-E",
+          },
+          body: JSON.stringify({ plan }),
+        }
+      );
+
+      const data = await response.json();
+      if (!response.ok || data?.error) throw new Error(data?.error || `Error ${response.status}`);
       if (!data?.url) throw new Error("No se recibió URL de pago de Stripe.");
 
       window.location.href = data.url;
