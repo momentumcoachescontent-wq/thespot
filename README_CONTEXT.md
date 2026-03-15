@@ -206,7 +206,7 @@ Los errores de "Cannot find module deno.land/..." en el IDE son **esperados y no
 | Item | Estado | Qué falta |
 |---|---|---|
 | Push Notifications activadas | Código listo, **inactivo** | Generar VAPID keys (`npx web-push generate-vapid-keys`) y agregar `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` en Supabase Secrets + `VITE_VAPID_PUBLIC_KEY` en Lovable env vars |
-| Stripe Customer Portal | Código listo, **puede fallar** | Activar en `dashboard.stripe.com/settings/billing/portal` |
+| Stripe Customer Portal | **100% operativo** | URL directa: `https://billing.stripe.com/p/login/bJe5kDbgQ7O17RnfuM5Ne00` — no requiere edge function |
 | Frontend DMs en producción | Commiteado, **pendiente de Lovable deploy** | Lovable debe detectar el push a main y hacer rebuild. Verificar en preview |
 | Notificaciones SOS push | Trigger en SOS no implementado | Agregar `supabase.functions.invoke('send-push', ...)` en `DashboardLayout.tsx` en `handleSosTrigger` (mismo patrón que FeedPage) |
 
