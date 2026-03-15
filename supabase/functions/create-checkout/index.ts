@@ -12,6 +12,20 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Decode JWT payload without network call.
+// Supabase edge runtime already validates the JWT signature before the function runs,
+// so we can safely trust the payload content.
+function decodeJwt(token: string): Record<string, any> | null {
+  try {
+    const parts = token.split(".");
+    if (parts.length !== 3) return null;
+    const payload = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    return JSON.parse(atob(payload));
+  } catch {
+    return null;
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -23,18 +37,22 @@ serve(async (req) => {
 
     const stripe = new Stripe(stripeKey, { apiVersion: "2023-10-16" });
 
-    // Auth: get the calling user from Supabase JWT
+    // Auth: extract user from JWT — avoids the auth.getUser() network call
+    // that fails for users created via Management API with empty providers.
     const authHeader = req.headers.get("authorization");
-    if (!authHeader) throw new Error("Missing authorization header");
+    if (!authHeader?.startsWith("Bearer ")) throw new Error("Missing authorization header");
 
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { authorization: authHeader } } }
-    );
+    const token = authHeader.replace("Bearer ", "");
+    const jwtPayload = decodeJwt(token);
+    const userId = jwtPayload?.sub;
+    const userEmail = jwtPayload?.email;
 
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    if (userError || !user) throw new Error("Unauthorized");
+    if (!userId) throw new Error("Unauthorized");
+
+    // Check token expiry
+    if (jwtPayload?.exp && jwtPayload.exp < Math.floor(Date.now() / 1000)) {
+      throw new Error("Token expired — please sign in again");
+    }
 
     const { plan = "monthly", success_url, cancel_url } = await req.json();
 
@@ -70,23 +88,23 @@ serve(async (req) => {
     const { data: profile } = await adminSupabase
       .from("profiles")
       .select("stripe_customer_id, full_name")
-      .eq("id", user.id)
+      .eq("id", userId)
       .single();
 
     let customerId = profile?.stripe_customer_id;
 
     if (!customerId) {
       const customer = await stripe.customers.create({
-        email: user.email,
-        name: profile?.full_name || user.email,
-        metadata: { supabase_user_id: user.id },
+        email: userEmail || "",
+        name: profile?.full_name || userEmail || userId,
+        metadata: { supabase_user_id: userId },
       });
       customerId = customer.id;
 
       await adminSupabase
         .from("profiles")
         .update({ stripe_customer_id: customerId })
-        .eq("id", user.id);
+        .eq("id", userId);
     }
 
     const appUrl = Deno.env.get("APP_URL") || "https://thespot.lovable.app";
@@ -99,9 +117,9 @@ serve(async (req) => {
       success_url: success_url || `${appUrl}/premium?success=true&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: cancel_url || `${appUrl}/premium?canceled=true`,
       subscription_data: {
-        metadata: { supabase_user_id: user.id },
+        metadata: { supabase_user_id: userId },
       },
-      metadata: { supabase_user_id: user.id },
+      metadata: { supabase_user_id: userId },
       allow_promotion_codes: true,
     });
 
