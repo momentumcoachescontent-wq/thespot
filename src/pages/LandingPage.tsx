@@ -95,24 +95,26 @@ const LandingPage = () => {
 
     setIsSubmitting(true);
     try {
-      // Try admin-login first (edge function checks credentials server-side).
-      // If the email is not an admin account, the function returns 401 and we fall through to OTP.
-      const { data: adminData, error: adminErr } = await supabase.functions.invoke("admin-login", {
-        body: { email },
-      });
-      if (!adminErr && adminData?.session) {
-        const { error: sessionErr } = await supabase.auth.setSession({
-          access_token: adminData.session.access_token,
-          refresh_token: adminData.session.refresh_token,
+      // Only try admin-login when no school is selected (institutional emails always use OTP).
+      // Admin accounts use non-.edu emails (gmail) without a school selection.
+      if (!selectedSchool) {
+        const { data: adminData, error: adminErr } = await supabase.functions.invoke("admin-login", {
+          body: { email },
         });
-        if (!sessionErr) {
-          toast({ title: "Acceso directo", description: "Bienvenido de vuelta." });
-          navigate("/feed");
-          return;
+        if (!adminErr && adminData?.session) {
+          const { error: sessionErr } = await supabase.auth.setSession({
+            access_token: adminData.session.access_token,
+            refresh_token: adminData.session.refresh_token,
+          });
+          if (!sessionErr) {
+            toast({ title: "Acceso directo", description: "Bienvenido de vuelta." });
+            navigate("/feed");
+            return;
+          }
         }
       }
 
-      // Not an admin account — proceed with OTP
+      // OTP flow — for all non-admin accounts
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: { shouldCreateUser: true },
@@ -124,9 +126,12 @@ const LandingPage = () => {
       toast({ title: "Código enviado", description: "Revisa tu correo." });
       setStep("otp");
     } catch (err: any) {
+      const isRateLimit = err?.status === 429 || err?.message?.toLowerCase().includes("rate") || err?.message?.toLowerCase().includes("too many");
       toast({
-        title: "Error de acceso",
-        description: err.message || "No pudimos enviar el código.",
+        title: isRateLimit ? "Demasiados intentos" : "Error de acceso",
+        description: isRateLimit
+          ? "Excediste el límite de códigos. Espera unos minutos antes de reintentar."
+          : err.message || "No pudimos enviar el código.",
         variant: "destructive",
       });
     } finally {
