@@ -1,0 +1,60 @@
+{
+  "packageId": "app.thespot.campus",
+  "host": "YOUR_LOVABLE_DOMAIN",
+  "name": "THE SPOT",
+  "launcherName": "The Spot",
+  "display": "standalone",
+  "orientation": "portrait",
+  "themeColor": "#C8FF00",
+  "navigationColor": "#0a0a0f",
+  "navigationColorDark": "#0a0a0f",
+  "navigationDividerColor": "#1a1a2e",
+  "navigationDividerColorDark": "#1a1a2e",
+  "backgroundColor": "#0a0a0f",
+  "startUrl": "/feed",
+  "iconUrl": "https://YOUR_LOVABLE_DOMAIN/icons/icon-512.png",
+  "maskableIconUrl": "https://YOUR_LOVABLE_DOMAIN/icons/icon-maskable-512.png",
+  "monochromeIconUrl": "https://YOUR_LOVABLE_DOMAIN/icons/icon-512.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "./android.keystore",
+    "alias": "thespot-key"
+  },
+  "appVersionCode": 1,
+  "appVersionName": "1.0.0",
+  "shortcuts": [
+    {
+      "name": "Feed",
+      "shortName": "Feed",
+      "url": "/feed",
+      "iconUrl": "https://YOUR_LOVABLE_DOMAIN/icons/icon-192.png"
+    },
+    {
+      "name": "Mensajes",
+      "shortName": "DMs",
+      "url": "/messages",
+      "iconUrl": "https://YOUR_LOVABLE_DOMAIN/icons/icon-192.png"
+    }
+  ],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://YOUR_LOVABLE_DOMAIN/manifest.json",
+  "fallbackType": "customtabs",
+  "features": {
+    "locationDelegation": {
+      "enabled": true
+    },
+    "playBilling": {
+      "enabled": false
+    }
+  },
+  "alphaDependencies": {
+    "enabled": false
+  },
+  "enableNotifications": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "fullScopeUrl": "https://YOUR_LOVABLE_DOMAIN/",
+  "minSdkVersion": 21,
+  "targetSdkVersion": 34,
+  "retainedBundles": []
+}

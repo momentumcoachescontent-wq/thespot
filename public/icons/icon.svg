@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Background -->
+  <rect width="512" height="512" rx="96" fill="#0A0A0F"/>
+  <!-- Lime mic circle glow -->
+  <circle cx="256" cy="220" r="130" fill="#C8FF00" opacity="0.08"/>
+  <!-- Mic body -->
+  <rect x="218" y="96" width="76" height="196" rx="38" fill="#C8FF00"/>
+  <!-- Mic stand arc -->
+  <path d="M156 236 C156 303 206 352 256 352 C306 352 356 303 356 236" fill="none" stroke="#C8FF00" stroke-width="28" stroke-linecap="round"/>
+  <!-- Mic pole -->
+  <rect x="242" y="352" width="28" height="60" rx="14" fill="#C8FF00"/>
+  <!-- Mic base -->
+  <rect x="182" y="400" width="148" height="28" rx="14" fill="#C8FF00"/>
+</svg>

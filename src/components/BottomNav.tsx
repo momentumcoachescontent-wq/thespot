@@ -1,14 +1,13 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { Mic, MapPin, Headphones, User, MessageSquare } from "lucide-react";
+import { LayoutDashboard, Headphones, User, MessageSquare } from "lucide-react";
 import { motion } from "framer-motion";
 import { useConversations } from "@/hooks/useConversations";
 
 const tabs = [
-  { path: "/feed",     icon: Mic,           label: "Canal" },
-  { path: "/map",      icon: MapPin,         label: "Mapa" },
-  { path: "/podcast",  icon: Headphones,     label: "Podcast" },
-  { path: "/messages", icon: MessageSquare,  label: "Mensajes" },
-  { path: "/profile",  icon: User,           label: "Perfil" },
+  { path: "/home",     icon: LayoutDashboard, label: "Inicio" },
+  { path: "/podcast",  icon: Headphones,      label: "Podcast" },
+  { path: "/messages", icon: MessageSquare,   label: "Mensajes" },
+  { path: "/profile",  icon: User,            label: "Perfil" },
 ];
 
 const BottomNav = () => {

@@ -12,6 +12,11 @@ dist
 dist-ssr
 *.local
 
+# TWA signing key — NEVER commit
+twa/android.keystore
+twa/*.keystore
+twa/android-project/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
