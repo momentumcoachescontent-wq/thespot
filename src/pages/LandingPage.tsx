@@ -9,12 +9,12 @@ import { ACADEMIC_DOMAINS } from "@/utils/academicDomains";
 import AcademicErrorModal from "@/components/AcademicErrorModal";
 import OnboardingModal from "@/components/OnboardingModal";
 
-// Bypass: non-institutional emails — loaded from env vars only, never hardcoded
-const BYPASS_EMAILS = (import.meta.env.VITE_ADMIN_EMAILS ?? "")
+// Admin emails that bypass OTP — used only for routing, password stays server-side
+const ADMIN_EMAILS = (import.meta.env.VITE_ADMIN_EMAILS ?? "")
   .split(",")
   .map((e: string) => e.trim().toLowerCase())
   .filter(Boolean);
-const isBypassEmail = (e: string) => BYPASS_EMAILS.includes(e.toLowerCase());
+const isAdminEmail = (e: string) => ADMIN_EMAILS.includes(e.toLowerCase());
 
 // Flat combined school list (no tabs)
 const ALL_SCHOOLS = [
@@ -101,20 +101,23 @@ const LandingPage = () => {
 
     setIsSubmitting(true);
     try {
-      // Password bypass for admin / test accounts (credentials from env only)
-      if (isBypassEmail(email)) {
-        const adminPwd = import.meta.env.VITE_ADMIN_PASSWORD;
-        if (!adminPwd) {
-          toast({ title: "Error de configuración", description: "Credenciales de admin no configuradas.", variant: "destructive" });
-          return;
+      // Admin bypass — credentials validated server-side via edge function (never in bundle)
+      if (isAdminEmail(email)) {
+        const { data: adminData, error: adminErr } = await supabase.functions.invoke("admin-login", {
+          body: { email },
+        });
+        if (!adminErr && adminData?.session) {
+          const { error: sessionErr } = await supabase.auth.setSession({
+            access_token: adminData.session.access_token,
+            refresh_token: adminData.session.refresh_token,
+          });
+          if (!sessionErr) {
+            toast({ title: "Acceso directo", description: "Bienvenido de vuelta." });
+            navigate("/feed");
+            return;
+          }
         }
-        const { error } = await supabase.auth.signInWithPassword({ email, password: adminPwd });
-        if (!error) {
-          toast({ title: "Acceso directo", description: "Bienvenido de vuelta." });
-          navigate("/feed");
-        } else {
-          toast({ title: "Error de acceso", description: "Credenciales incorrectas.", variant: "destructive" });
-        }
+        toast({ title: "Error de acceso", description: "Credenciales incorrectas.", variant: "destructive" });
         return;
       }
 

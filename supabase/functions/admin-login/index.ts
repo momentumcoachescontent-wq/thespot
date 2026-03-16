@@ -1,0 +1,84 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+
+// CORS: restrict to APP_URL in production
+const appOrigin = Deno.env.get("APP_URL") ?? "*";
+const corsHeaders = {
+  "Access-Control-Allow-Origin": appOrigin,
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
+  if (req.method !== "POST") {
+    return new Response(JSON.stringify({ error: "Method not allowed" }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 405,
+    });
+  }
+
+  try {
+    const { email } = await req.json();
+    if (!email) {
+      return new Response(JSON.stringify({ error: "Email required" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400,
+      });
+    }
+
+    // CRIT-1 fix: Admin credentials live in Supabase Secrets (never in VITE_ env vars / JS bundle)
+    const adminEmailsRaw = Deno.env.get("ADMIN_EMAILS") ?? "";
+    const adminEmails = adminEmailsRaw
+      .split(",")
+      .map((e) => e.trim().toLowerCase())
+      .filter(Boolean);
+    const adminPassword = Deno.env.get("ADMIN_PASSWORD") ?? "";
+
+    const normalizedEmail = email.toLowerCase().trim();
+
+    // Return 401 for non-admin emails (don't reveal which emails are admin)
+    if (!adminEmails.includes(normalizedEmail) || !adminPassword) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401,
+      });
+    }
+
+    // Authenticate via Supabase Auth server-side using stored secret password
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL") || "",
+      Deno.env.get("SUPABASE_ANON_KEY") || ""
+    );
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: normalizedEmail,
+      password: adminPassword,
+    });
+
+    if (error || !data.session) {
+      return new Response(JSON.stringify({ error: "Authentication failed" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401,
+      });
+    }
+
+    return new Response(
+      JSON.stringify({
+        session: {
+          access_token: data.session.access_token,
+          refresh_token: data.session.refresh_token,
+          expires_at: data.session.expires_at,
+        },
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+    );
+  } catch (error: any) {
+    return new Response(JSON.stringify({ error: error.message }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 400,
+    });
+  }
+});
