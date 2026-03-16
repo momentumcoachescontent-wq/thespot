@@ -9,10 +9,12 @@ import { ACADEMIC_DOMAINS } from "@/utils/academicDomains";
 import AcademicErrorModal from "@/components/AcademicErrorModal";
 import OnboardingModal from "@/components/OnboardingModal";
 
-// Bypass: non-institutional emails (admins + test accounts)
-const EMAIL_BYPASS = ["momentumcoaches.content@gmail.com", "ealvareze1@gmail.com"];
-const isBypassEmail = (e: string) =>
-  e.toLowerCase().includes("admin") || EMAIL_BYPASS.includes(e.toLowerCase());
+// Bypass: non-institutional emails — loaded from env vars only, never hardcoded
+const BYPASS_EMAILS = (import.meta.env.VITE_ADMIN_EMAILS ?? "")
+  .split(",")
+  .map((e: string) => e.trim().toLowerCase())
+  .filter(Boolean);
+const isBypassEmail = (e: string) => BYPASS_EMAILS.includes(e.toLowerCase());
 
 // Flat combined school list (no tabs)
 const ALL_SCHOOLS = [
@@ -99,21 +101,19 @@ const LandingPage = () => {
 
     setIsSubmitting(true);
     try {
-      // Password bypass for admin / test accounts — never fall through to OTP
+      // Password bypass for admin / test accounts (credentials from env only)
       if (isBypassEmail(email)) {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password: "SpotAdmin2026!",
-        });
+        const adminPwd = import.meta.env.VITE_ADMIN_PASSWORD;
+        if (!adminPwd) {
+          toast({ title: "Error de configuración", description: "Credenciales de admin no configuradas.", variant: "destructive" });
+          return;
+        }
+        const { error } = await supabase.auth.signInWithPassword({ email, password: adminPwd });
         if (!error) {
           toast({ title: "Acceso directo", description: "Bienvenido de vuelta." });
           navigate("/feed");
         } else {
-          toast({
-            title: "Error de acceso",
-            description: "Credenciales incorrectas para esta cuenta.",
-            variant: "destructive",
-          });
+          toast({ title: "Error de acceso", description: "Credenciales incorrectas.", variant: "destructive" });
         }
         return;
       }

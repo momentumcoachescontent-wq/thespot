@@ -18,7 +18,9 @@ self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      const url = event.notification.data?.url ?? '/feed';
+      // LOW-6: only allow relative paths to prevent open redirect
+      const rawUrl = event.notification.data?.url ?? '/feed';
+      const url = rawUrl.startsWith('/') ? rawUrl : '/feed';
       for (const client of clientList) {
         if (client.url.includes(self.location.origin) && 'focus' in client) {
           client.focus();

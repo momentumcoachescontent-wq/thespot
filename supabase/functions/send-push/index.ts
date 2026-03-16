@@ -9,8 +9,9 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+const appOrigin = Deno.env.get("APP_URL") ?? "*";
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": appOrigin,
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
@@ -197,9 +198,32 @@ async function sendWebPush(
   return { ok: response.ok, status: response.status };
 }
 
+function decodeJwt(token: string): Record<string, any> | null {
+  try {
+    const parts = token.split(".");
+    if (parts.length !== 3) return null;
+    return JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")));
+  } catch { return null; }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
+  }
+
+  // HIGH-3: require authenticated caller
+  const authHeader = req.headers.get("authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 401,
+    });
+  }
+  const jwt = decodeJwt(authHeader.replace("Bearer ", ""));
+  const callerId = jwt?.sub;
+  if (!callerId || (jwt?.exp && jwt.exp < Math.floor(Date.now() / 1000))) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 401,
+    });
   }
 
   try {
@@ -228,11 +252,16 @@ serve(async (req) => {
     if (user_id) {
       userIds = [user_id];
     } else if (university_domain) {
-      // Notify all users in the same campus
+      // Campus-wide push: require admin role
+      const { data: callerProfile } = await adminSupabase
+        .from("profiles").select("role").eq("id", callerId).single();
+      if (callerProfile?.role !== "admin") {
+        return new Response(JSON.stringify({ error: "Forbidden: campus-wide push requires admin" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 403,
+        });
+      }
       const { data: profiles } = await adminSupabase
-        .from("profiles")
-        .select("id")
-        .eq("university_domain", university_domain);
+        .from("profiles").select("id").eq("university_domain", university_domain);
       userIds = (profiles || []).map((p: any) => p.id);
     }
 

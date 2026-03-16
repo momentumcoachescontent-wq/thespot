@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Mic, RefreshCw, Crown, Clock } from "lucide-react";
+import { ArrowLeft, Mic, RefreshCw, Crown, Clock, AlertTriangle } from "lucide-react";
 import { AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -15,6 +15,7 @@ const ChatPage = () => {
   const { messages, loading } = useMessages(conversationId);
 
   const [otherUser, setOtherUser] = useState<{ id: string; username: string; avatar_emoji: string } | null>(null);
+  const [notFound, setNotFound] = useState(false);
   const [showVoice, setShowVoice] = useState(false);
 
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -32,8 +33,9 @@ const ChatPage = () => {
         `)
         .eq("id", conversationId)
         .single();
-      if (!data) return;
+      if (!data) { setNotFound(true); return; }
       const other = data.participant_a === user.id ? data.profile_b : data.profile_a;
+      if (other?.id !== user.id && !other) { setNotFound(true); return; }
       setOtherUser(other);
     })();
   }, [conversationId, user]);
@@ -56,6 +58,29 @@ const ChatPage = () => {
       }).catch(() => {});
     }
   };
+
+  // MED-10: handle conversation not found / not authorized
+  if (notFound) {
+    return (
+      <div className="flex h-screen flex-col bg-background">
+        <div className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-xl">
+          <div className="mx-auto flex max-w-2xl items-center gap-3 px-4 py-3">
+            <button onClick={() => navigate("/messages")} className="text-muted-foreground hover:text-foreground">
+              <ArrowLeft size={20} />
+            </button>
+          </div>
+        </div>
+        <div className="flex flex-1 flex-col items-center justify-center gap-4 px-8 text-center">
+          <AlertTriangle size={32} className="text-spot-red" />
+          <p className="font-bebas text-2xl text-foreground">Conversación no encontrada</p>
+          <p className="font-mono text-xs text-muted-foreground">No tienes acceso a esta conversación.</p>
+          <button onClick={() => navigate("/messages")} className="rounded-xl border border-border px-5 py-2 font-mono text-xs text-muted-foreground hover:text-foreground transition-colors">
+            Volver a mensajes
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // Premium gate
   if (!isPremium && !isAdmin) {

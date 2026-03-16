@@ -30,6 +30,9 @@ const DmVoiceRecorder = ({ conversationId, maxDuration = 60, onSent, onCancel }:
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+      // LOW-5: stop mic and close AudioContext on unmount
+      if (mediaRecorderRef.current?.state === "recording") mediaRecorderRef.current.stop();
+      if (audioContextRef.current?.state !== "closed") audioContextRef.current?.close();
     };
   }, []);
 

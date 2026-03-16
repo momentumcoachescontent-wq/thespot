@@ -12,6 +12,11 @@ dist
 dist-ssr
 *.local
 
+# Env files — NEVER commit secrets
+.env
+.env.local
+.env.*.local
+
 # TWA signing key — NEVER commit
 twa/android.keystore
 twa/*.keystore

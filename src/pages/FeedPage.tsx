@@ -48,7 +48,7 @@ const FeedPage = () => {
         }
       }
 
-      const { data: realDrops, error } = await query.order("created_at", { ascending: false });
+      const { data: realDrops, error } = await query.order("created_at", { ascending: false }).limit(50);
 
       if (error) throw error;
 

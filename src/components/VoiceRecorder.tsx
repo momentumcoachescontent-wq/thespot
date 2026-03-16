@@ -29,6 +29,10 @@ const VoiceRecorder = ({ maxDuration = 60, onRecorded, onCancel }: VoiceRecorder
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
       if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+      // HIGH-7: stop mic stream and close AudioContext on unmount
+      if (mediaRecorderRef.current?.state === "recording") mediaRecorderRef.current.stop();
+      if (audioContextRef.current?.state !== "closed") audioContextRef.current?.close();
+      if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
     };
   }, []);
 
@@ -129,12 +133,16 @@ const VoiceRecorder = ({ maxDuration = 60, onRecorded, onCancel }: VoiceRecorder
       audioRef.current?.pause();
       setIsPlaying(false);
     } else {
-      const url = URL.createObjectURL(audioBlob);
-      if (!audioRef.current) {
-        audioRef.current = new Audio(url);
-        audioRef.current.onended = () => setIsPlaying(false);
+      // LOW-4: revoke previous URL before creating a new one
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
       }
-      audioRef.current.play();
+      const url = URL.createObjectURL(audioBlob);
+      const audio = new Audio(url);
+      audio.onended = () => { setIsPlaying(false); URL.revokeObjectURL(url); };
+      audioRef.current = audio;
+      audio.play();
       setIsPlaying(true);
     }
   };
