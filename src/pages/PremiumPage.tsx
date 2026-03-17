@@ -1,31 +1,39 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Crown, Mic, Headphones, Clock, Check, ArrowLeft, Zap, CreditCard, RefreshCw } from "lucide-react";
+import { Crown, Mic, Headphones, Clock, Check, X, ArrowLeft, Zap, CreditCard, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 
 const buildFeaturesFreemium = (recSec: number) => [
-  { text: "Escuchar Drops del campus", ok: true },
-  { text: `Grabar Drops (máx. ${recSec} seg)`, ok: true },
-  { text: "Reacciones con emojis", ok: true },
-  { text: "Escuchar Spotcasts", ok: true },
-  { text: "Mapa de actividad universitaria", ok: true },
-  { text: "Botón SOS", ok: true },
-  { text: "Crear Spotcasts (podcasts)", ok: false },
-  { text: "Drops de hasta 60 seg", ok: false },
-  { text: "Prioridad en el ranking", ok: false },
-  { text: "Badge Spot+ en perfil", ok: false },
+  { text: "Oye todo el hype del campus",    ok: true },
+  { text: `Drops rápidos (${recSec} seg)`,  ok: true },
+  { text: "Reacciona con el mood",           ok: true },
+  { text: "Explora el mapa en vivo",         ok: true },
+  { text: "Botón notificación Spot",         ok: true },
+  { text: "Botón SOS de seguridad",          ok: true },
+  { text: "Crear Spotcasts (Podcasts)",      ok: false },
+  { text: "Drops de larga duración",         ok: false },
 ];
 
-const buildFeaturesPremium = (recSec: number) => [
-  { text: "Todo lo de Freemium" },
-  { text: "Crear Spotcasts ilimitados" },
-  { text: `Drops de hasta ${recSec} seg` },
-  { text: "Prioridad en el ranking campus" },
-  { text: "Badge exclusivo Spot+ en perfil" },
-  { text: "Acceso anticipado a nuevas funciones" },
+const buildFeaturesMonthly = (recSec: number) => [
+  { icon: "🔥", text: "Todo lo de Freemium y más" },
+  { icon: "🔥", text: "Crea tus propios Spotcasts" },
+  { icon: "🔥", text: `Drops de ${recSec}s (Doble tiempo)` },
+  { icon: "🔥", text: "Triple alcance: Drops de 15 min" },
+  { icon: "🔥", text: "DMs: Conecta en privado" },
+  { icon: "🔥", text: "Badge VIP y prioridad Top" },
+];
+
+const buildFeaturesYearly = (recSec: number) => [
+  { icon: "✨", text: "Todo el año en modo Creator" },
+  { icon: "✨", text: "Spotcasts ilimitados (365 días)" },
+  { icon: "✨", text: "Badge VIP permanente en tu perfil" },
+  { icon: "✨", text: `Drops de ${recSec}s y vida de 15 min` },
+  { icon: "✨", text: "DMs desbloqueados siempre" },
+  { icon: "✨", text: "Prioridad máxima en cada ranking" },
+  { icon: "🎁", text: "2 meses de regalo (Ahorra 15%)" },
 ];
 
 const PremiumPage = () => {
@@ -37,7 +45,7 @@ const PremiumPage = () => {
   const [plan, setPlan] = useState<"monthly" | "yearly">("monthly");
   const [loading, setLoading] = useState(false);
   const [recordingLimits, setRecordingLimits] = useState({ freemium: 30, premium: 60 });
-  const [displayPrices, setDisplayPrices] = useState({ monthly: 99, yearly: 999 });
+  const [displayPrices, setDisplayPrices] = useState({ monthly: 49, yearly: 499 });
 
   const success = searchParams.get("success") === "true";
   const canceled = searchParams.get("canceled") === "true";
@@ -64,11 +72,11 @@ const PremiumPage = () => {
         data.forEach((s: any) => { map[s.key] = Number(s.value); });
         setRecordingLimits({
           freemium: map["recording_limit_freemium"] || 30,
-          premium: map["recording_limit_premium"] || 60,
+          premium:  map["recording_limit_premium"]  || 60,
         });
         setDisplayPrices({
-          monthly: map["price_display_monthly"] || 99,
-          yearly: map["price_display_yearly"] || 999,
+          monthly: map["price_display_monthly"] || 49,
+          yearly:  map["price_display_yearly"]  || 499,
         });
       }
     };
@@ -76,26 +84,15 @@ const PremiumPage = () => {
   }, []);
 
   const handleSubscribe = async () => {
-    if (!user) {
-      navigate("/");
-      return;
-    }
+    if (!user) { navigate("/"); return; }
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke("create-checkout", {
-        body: { plan },
-      });
-
+      const { data, error } = await supabase.functions.invoke("create-checkout", { body: { plan } });
       if (error) throw error;
       if (!data?.url) throw new Error("No se recibió URL de pago de Stripe.");
-
       window.location.href = data.url;
     } catch (err: any) {
-      toast({
-        title: "Error al iniciar pago",
-        description: err.message || "Intenta de nuevo o contacta soporte.",
-        variant: "destructive",
-      });
+      toast({ title: "Error al iniciar pago", description: err.message || "Intenta de nuevo o contacta soporte.", variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -107,10 +104,15 @@ const PremiumPage = () => {
       if (error) throw error;
       if (data?.url) window.open(data.url, "_blank");
     } catch {
-      // Fallback to shareable portal link if edge function fails
       window.open("https://billing.stripe.com/p/login/bJe5kDbgQ7O17RnfuM5Ne00", "_blank");
     }
   };
+
+  const premiumFeatures = plan === "yearly"
+    ? buildFeaturesYearly(recordingLimits.premium)
+    : buildFeaturesMonthly(recordingLimits.premium);
+
+  const monthlyEquivalent = (displayPrices.yearly / 12).toFixed(2);
 
   return (
     <div className="min-h-screen bg-background pb-12">
@@ -171,7 +173,7 @@ const PremiumPage = () => {
             </div>
           </div>
           <h2 className="font-bebas text-4xl text-foreground tracking-wider">
-            Amplifica tu <span className="text-spot-lime">voz</span>
+            Domina la <span className="text-spot-lime">conversación</span>
           </h2>
           <p className="font-mono text-xs text-muted-foreground max-w-sm mx-auto">
             Desbloquea todo el potencial de The Spot con Spot+: crea Spotcasts, drops más largos y destaca en tu campus.
@@ -199,7 +201,7 @@ const PremiumPage = () => {
 
         {/* Pricing cards */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {/* Free */}
+          {/* Freemium */}
           <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
             <div>
               <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Freemium</p>
@@ -208,8 +210,10 @@ const PremiumPage = () => {
             <div className="space-y-2">
               {buildFeaturesFreemium(recordingLimits.freemium).map((f, i) => (
                 <div key={i} className={`flex items-center gap-2 font-mono text-[11px] ${f.ok ? "text-foreground" : "text-muted-foreground/40 line-through"}`}>
-                  <span className={`flex h-4 w-4 items-center justify-center rounded-full ${f.ok ? "bg-muted" : ""}`}>
-                    {f.ok ? <Check size={10} className="text-spot-lime" /> : <span className="text-[8px]">✕</span>}
+                  <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full ${f.ok ? "bg-muted" : ""}`}>
+                    {f.ok
+                      ? <Check size={10} className="text-spot-lime" />
+                      : <X size={9} className="text-muted-foreground/40" />}
                   </span>
                   {f.text}
                 </div>
@@ -223,46 +227,60 @@ const PremiumPage = () => {
             className="rounded-2xl border-2 border-spot-lime bg-gradient-to-b from-spot-lime/5 to-card p-5 space-y-4 relative overflow-hidden"
           >
             <div className="absolute top-3 right-3">
-              <span className="rounded-full bg-spot-lime px-2 py-0.5 font-mono text-[8px] text-black uppercase tracking-widest">Popular</span>
+              <span className="rounded-full bg-spot-lime px-2 py-0.5 font-mono text-[8px] text-black uppercase tracking-widest">
+                {plan === "yearly" ? "Mejor oferta" : "Popular"}
+              </span>
             </div>
+
             <div>
               <p className="font-mono text-[10px] uppercase tracking-widest text-spot-lime">Spot+</p>
               {plan === "monthly" ? (
                 <div>
                   <p className="font-bebas text-4xl text-foreground">${displayPrices.monthly}<span className="text-lg text-muted-foreground">/mes</span></p>
                   <p className="font-mono text-[9px] text-muted-foreground">MXN · cancela cuando quieras</p>
+                  <p className="font-mono text-[9px] text-spot-lime/70 mt-0.5">Menos de lo que cuesta un café por todo el control.</p>
                 </div>
               ) : (
                 <div>
                   <p className="font-bebas text-4xl text-foreground">${displayPrices.yearly}<span className="text-lg text-muted-foreground">/año</span></p>
-                  <p className="font-mono text-[9px] text-spot-lime">Ahorras ${Math.max(0, displayPrices.monthly * 12 - displayPrices.yearly)} MXN vs mensual</p>
+                  <p className="font-mono text-[9px] text-spot-lime">${monthlyEquivalent} / mes · Ahorras ${Math.max(0, displayPrices.monthly * 12 - displayPrices.yearly)} MXN</p>
                 </div>
               )}
             </div>
+
             <div className="space-y-2">
-              {buildFeaturesPremium(recordingLimits.premium).map((f, i) => (
+              {premiumFeatures.map((f, i) => (
                 <div key={i} className="flex items-center gap-2 font-mono text-[11px] text-foreground">
-                  <span className="flex h-4 w-4 items-center justify-center rounded-full bg-spot-lime/20">
-                    <Check size={10} className="text-spot-lime" />
-                  </span>
+                  <span className="shrink-0 text-base leading-none">{f.icon}</span>
                   {f.text}
                 </div>
               ))}
             </div>
 
             {!(isPremium || isAdmin) && (
-              <button
-                onClick={handleSubscribe}
-                disabled={loading}
-                className="w-full flex items-center justify-center gap-2 rounded-xl bg-spot-lime py-3 font-bebas text-lg text-black shadow-lg shadow-spot-lime/30 transition-all hover:shadow-spot-lime/50 hover:scale-[1.02] disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                {loading ? (
-                  <RefreshCw size={16} className="animate-spin" />
-                ) : (
-                  <CreditCard size={16} />
+              <div className="space-y-1.5">
+                <button
+                  onClick={handleSubscribe}
+                  disabled={loading}
+                  className={`w-full flex items-center justify-center gap-2 rounded-xl py-3 font-bebas text-lg text-black shadow-lg transition-all hover:scale-[1.02] disabled:opacity-60 disabled:cursor-not-allowed ${
+                    plan === "yearly"
+                      ? "bg-gradient-to-r from-spot-lime via-amber-300 to-spot-lime shadow-spot-lime/40 hover:shadow-spot-lime/60 hover:brightness-105"
+                      : "bg-spot-lime shadow-spot-lime/30 hover:shadow-spot-lime/50"
+                  }`}
+                >
+                  {loading ? (
+                    <RefreshCw size={16} className="animate-spin" />
+                  ) : (
+                    <CreditCard size={16} />
+                  )}
+                  {loading ? "Redirigiendo..." : plan === "yearly" ? "Ser VIP todo el año" : "Activar mi modo Spot+"}
+                </button>
+                {plan === "yearly" && (
+                  <p className="text-center font-mono text-[9px] text-muted-foreground/60">
+                    Un solo pago. Un año de control total.
+                  </p>
                 )}
-                {loading ? "Redirigiendo..." : "Suscribirse con Stripe"}
-              </button>
+              </div>
             )}
           </motion.div>
         </div>
@@ -270,9 +288,9 @@ const PremiumPage = () => {
         {/* Feature highlights */}
         <div className="grid grid-cols-3 gap-3">
           {[
-            { icon: Mic, label: "Spotcasts", desc: "Crea tu propio podcast de campus" },
-            { icon: Clock, label: `${recordingLimits.premium} seg`, desc: "Drops más largos para más contexto" },
-            { icon: Headphones, label: "Sin límites", desc: "Escucha y crea sin restricciones" },
+            { icon: Mic,       label: "Spotcasts",    desc: "Crea tu propio podcast de campus" },
+            { icon: Clock,     label: `${recordingLimits.premium}s`, desc: "Drops más largos para más contexto" },
+            { icon: Headphones, label: "Sin límites",  desc: "Escucha y crea sin restricciones" },
           ].map(({ icon: Icon, label, desc }) => (
             <div key={label} className="rounded-2xl border border-border bg-card p-4 text-center space-y-2">
               <div className="flex justify-center">
