@@ -4,57 +4,57 @@
   "name": "THE SPOT",
   "launcherName": "The Spot",
   "display": "standalone",
-  "orientation": "portrait",
   "themeColor": "#C8FF00",
+  "themeColorDark": "#000000",
   "navigationColor": "#0a0a0f",
   "navigationColorDark": "#0a0a0f",
   "navigationDividerColor": "#1a1a2e",
   "navigationDividerColorDark": "#1a1a2e",
-  "backgroundColor": "#0a0a0f",
+  "backgroundColor": "#0A0A0F",
+  "enableNotifications": true,
   "startUrl": "/feed",
   "iconUrl": "https://thespot.lovable.app/icons/icon-512.png",
   "maskableIconUrl": "https://thespot.lovable.app/icons/icon-maskable-512.png",
-  "monochromeIconUrl": "https://thespot.lovable.app/icons/icon-512.png",
   "splashScreenFadeOutDuration": 300,
   "signingKey": {
-    "path": "./android.keystore",
+    "path": "/Users/neto_alvarez/.gemini/antigravity/scratch/thespot-lovable/twa/android.keystore",
     "alias": "thespot-key"
   },
+  "appVersionName": "1",
   "appVersionCode": 1,
-  "appVersionName": "1.0.0",
   "shortcuts": [
     {
       "name": "Feed",
       "shortName": "Feed",
-      "url": "/feed",
-      "iconUrl": "https://thespot.lovable.app/icons/icon-192.png"
+      "url": "https://thespot.lovable.app/feed",
+      "chosenIconUrl": "https://thespot.lovable.app/icons/icon-192.png"
     },
     {
       "name": "Mensajes",
       "shortName": "DMs",
-      "url": "/messages",
-      "iconUrl": "https://thespot.lovable.app/icons/icon-192.png"
+      "url": "https://thespot.lovable.app/messages",
+      "chosenIconUrl": "https://thespot.lovable.app/icons/icon-192.png"
     }
   ],
   "generatorApp": "bubblewrap-cli",
   "webManifestUrl": "https://thespot.lovable.app/manifest.json",
   "fallbackType": "customtabs",
-  "features": {
-    "locationDelegation": {
-      "enabled": true
-    },
-    "playBilling": {
-      "enabled": false
-    }
-  },
+  "features": {},
   "alphaDependencies": {
     "enabled": false
   },
-  "enableNotifications": true,
+  "enableSiteSettingsShortcut": true,
   "isChromeOSOnly": false,
   "isMetaQuest": false,
   "fullScopeUrl": "https://thespot.lovable.app/",
   "minSdkVersion": 21,
-  "targetSdkVersion": 34,
-  "retainedBundles": []
+  "orientation": "portrait",
+  "fingerprints": [],
+  "additionalTrustedOrigins": [],
+  "retainedBundles": [],
+  "protocolHandlers": [],
+  "fileHandlers": [],
+  "launchHandlerClientMode": "",
+  "displayOverride": [],
+  "appVersion": "1"
 }
