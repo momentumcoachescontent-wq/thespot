@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
 import { Users, Mic, Shield, Trophy, TrendingUp, AlertTriangle, ArrowLeft, Crown, CreditCard, CheckCircle, XCircle, Zap, Clock, Pencil, X, Check as CheckIcon } from "lucide-react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
@@ -101,7 +101,6 @@ const StatCard = ({ icon: Icon, label, value, color = "text-spot-lime" }: any) =
   </motion.div>
 );
 
-const MOOD_COLORS = ["#FF2D55", "#FF6B6B", "#888", "#C8FF00", "#00F0FF"];
 
 const AdminPage = () => {
   const navigate = useNavigate();
@@ -109,10 +108,6 @@ const AdminPage = () => {
   const { isAdmin, loading: authLoading } = useAuth();
   const [tab, setTab] = useState<"overview" | "drops" | "users" | "incidents" | "settings" | "stripe">("overview");
   const [settings, setSettings] = useState<any>({
-    ai_moderation_enabled: false,
-    auto_moderation_mode: false,
-    moderation_rules: "",
-    ai_model_provider: "openai",
     drop_duration_freemium: 5,
     drop_duration_premium: 15,
     stripe_price_id_monthly: "",
@@ -125,12 +120,9 @@ const AdminPage = () => {
   const [dropsByDay, setDropsByDay] = useState<any[]>([]);
   const [engagementByDay, setEngagementByDay] = useState<any[]>([]);
   const [uniRanking, setUniRanking] = useState<any[]>([]);
-  const [moodDist, setMoodDist] = useState<any[]>([]);
   const [topUsers, setTopUsers] = useState<any[]>([]);
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [incidents, setIncidents] = useState<any[]>([]);
-  const [flaggedDrops, setFlaggedDrops] = useState<any[]>([]);
-  const [moderationLogs, setModerationLogs] = useState<any[]>([]);
   const [stripeTransactions, setStripeTransactions] = useState<any[]>([]);
   const [stripeStats, setStripeStats] = useState({ total: 0, revenue: 0, premium_users: 0 });
   const [loading, setLoading] = useState(true);
@@ -145,11 +137,10 @@ const AdminPage = () => {
 
   const loadDashboard = async () => {
     try {
-      const [profilesRes, dropsRes, incidentsRes, moodRes, settingsRes, interactionsRes, allUsersRes, stripeRes] = await Promise.allSettled([
-        (supabase as any).from("profiles").select("id, flag_count", { count: "exact", head: true }),
-        (supabase as any).from("drops").select("id, created_at, profiles:author_id(username, university_domain, flag_count)", { count: "exact" }).order("created_at", { ascending: false }).limit(200),
+      const [profilesRes, dropsRes, incidentsRes, settingsRes, interactionsRes, allUsersRes, stripeRes] = await Promise.allSettled([
+        (supabase as any).from("profiles").select("id", { count: "exact", head: true }),
+        (supabase as any).from("drops").select("id, created_at, profiles:author_id(username, university_domain)", { count: "exact" }).order("created_at", { ascending: false }).limit(200),
         (supabase as any).from("sos_incidents").select("*").order("created_at", { ascending: false }).limit(50),
-        (supabase as any).from("mood_checkins").select("mood").limit(500),
         (supabase as any).from("site_settings").select("*"),
         (supabase as any).from("interactions").select("id, drop_id, created_at").order("created_at", { ascending: false }).limit(1000),
         (supabase as any).from("profiles").select("id, username, full_name, is_premium, role, subscription_status, premium_granted_by_admin, university_domain, created_at").order("created_at", { ascending: false }).limit(100),
@@ -215,32 +206,17 @@ const AdminPage = () => {
       });
       setUniRanking(Object.entries(uniCounts).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([uni, drops]) => ({ uni, drops })));
 
-      const userStats: Record<string, { drops: number, flags: number }> = {};
+      const userStats: Record<string, { drops: number }> = {};
       dropsData.forEach((d: any) => {
         const u = d.profiles?.username || "anónimo";
-        if (!userStats[u]) userStats[u] = { drops: 0, flags: d.profiles?.flag_count || 0 };
+        if (!userStats[u]) userStats[u] = { drops: 0 };
         userStats[u].drops++;
       });
       setTopUsers(Object.entries(userStats).sort((a, b) => b[1].drops - a[1].drops).slice(0, 10).map(([user, data], i) => ({
         user,
         drops: data.drops,
-        flags: data.flags,
         rank: i + 1
       })));
-
-      const { data: flaggedData } = await (supabase as any)
-        .from('drops')
-        .select('id, audio_url, created_at, profiles:author_id(username)')
-        .eq('is_flagged', true)
-        .order('created_at', { ascending: false });
-      setFlaggedDrops(flaggedData || []);
-
-      const { data: logsData } = await (supabase as any)
-        .from('moderation_logs')
-        .select('*, profiles:user_id(username)')
-        .order('created_at', { ascending: false })
-        .limit(20);
-      setModerationLogs(logsData || []);
 
     } catch (e) {
       console.error("Dashboard error:", e);
@@ -445,28 +421,6 @@ const AdminPage = () => {
                   </ResponsiveContainer>
                 </div>
 
-                {moodDist.length > 0 && (
-                  <div className="rounded-2xl border border-border bg-card p-4">
-                    <h3 className="mb-4 font-bebas text-lg text-foreground">Distribución de Estado de Ánimo</h3>
-                    <div className="flex items-center gap-4">
-                      <ResponsiveContainer width="50%" height={140}>
-                        <PieChart>
-                          <Pie data={moodDist} cx="50%" cy="50%" innerRadius={40} outerRadius={65} dataKey="value" paddingAngle={3}>
-                            {moodDist.map((_, i) => <Cell key={i} fill={MOOD_COLORS[i % MOOD_COLORS.length]} />)}
-                          </Pie>
-                        </PieChart>
-                      </ResponsiveContainer>
-                      <div className="space-y-1.5">
-                        {moodDist.map((m, i) => (
-                          <div key={m.name} className="flex items-center gap-2">
-                            <div className="h-2.5 w-2.5 rounded-full" style={{ background: MOOD_COLORS[i % MOOD_COLORS.length] }} />
-                            <span className="font-mono text-[10px] text-muted-foreground">{m.name}: {m.value}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
               </>
             )}
 
@@ -483,26 +437,6 @@ const AdminPage = () => {
                   </BarChart>
                 </ResponsiveContainer>
 
-                <div className="mt-6 space-y-4">
-                  <h3 className="font-bebas text-lg text-foreground uppercase tracking-widest">Historial de Moderación Reciente</h3>
-                  <div className="space-y-2">
-                    {moderationLogs.length === 0 ? (
-                      <p className="font-mono text-[10px] text-muted-foreground uppercase opacity-50">Sin actividad registrada</p>
-                    ) : moderationLogs.map(log => (
-                      <div key={log.id} className="flex items-center justify-between rounded-lg border border-border bg-muted/20 p-2 font-mono text-[9px]">
-                        <div className="flex items-center gap-2">
-                          <span className={`${log.action === 'AUTO_APPROVED' ? 'text-spot-lime' : 'text-spot-red'} font-bold`}>
-                            [{log.action}]
-                          </span>
-                          <span className="text-foreground">@{log.profiles?.username}</span>
-                        </div>
-                        <span className="text-muted-foreground opacity-60">
-                          {new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
               </div>
             )}
 
@@ -526,11 +460,6 @@ const AdminPage = () => {
                       <div className="flex-1">
                         <p className="font-bebas text-base leading-none text-foreground flex items-center gap-2">
                           @{u.user}
-                          {u.flags > 0 && (
-                            <span className="bg-spot-red/10 text-spot-red px-1.5 py-0.5 rounded text-[8px] font-mono leading-none border border-spot-red/20">
-                              ⚠️ {u.flags}
-                            </span>
-                          )}
                         </p>
                         <p className="font-mono text-[10px] text-muted-foreground">{u.drops} drops</p>
                       </div>
@@ -674,96 +603,6 @@ const AdminPage = () => {
                 <h3 className="font-bebas text-xl text-foreground">Configuración de Sistema</h3>
 
                 <div className="rounded-2xl border border-border bg-card p-6 space-y-6">
-                  {/* AI moderation toggle */}
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="font-bebas text-lg text-foreground">Moderación Automática (IA)</h4>
-                      <p className="font-mono text-[10px] text-muted-foreground">Analiza el contenido de los audios antes de publicarlos.</p>
-                    </div>
-                    <button
-                      onClick={async () => {
-                        const newValue = !settings.ai_moderation_enabled;
-                        const { error } = await (supabase as any).from('site_settings').upsert({ key: 'ai_moderation_enabled', value: newValue });
-                        if (!error) {
-                          setSettings({ ...settings, ai_moderation_enabled: newValue });
-                          toast({ title: newValue ? "Moderación activada" : "Moderación desactivada" });
-                        }
-                      }}
-                      className={`relative h-6 w-12 rounded-full transition-colors ${settings.ai_moderation_enabled ? 'bg-spot-lime' : 'bg-muted'}`}
-                    >
-                      <div className={`absolute top-1 h-4 w-4 rounded-full bg-white transition-all ${settings.ai_moderation_enabled ? 'left-7 bg-black' : 'left-1'}`} />
-                    </button>
-                  </div>
-
-                  <div className="flex items-center justify-between rounded-xl border border-border bg-muted/30 p-4">
-                    <div className="space-y-1">
-                      <h4 className="font-bebas text-lg text-foreground">Modo Auto-Piloto</h4>
-                      <p className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">La IA decide el destino del Drop sin intervención del Arquitecto.</p>
-                    </div>
-                    <button
-                      onClick={async () => {
-                        const newValue = !settings.auto_moderation_mode;
-                        const { error } = await (supabase as any).from('site_settings').upsert({ key: 'auto_moderation_mode', value: newValue });
-                        if (!error) {
-                          setSettings({ ...settings, auto_moderation_mode: newValue });
-                          toast({ title: newValue ? "Auto-Piloto Activado" : "Auto-Piloto Desactivado" });
-                        }
-                      }}
-                      className={`relative h-6 w-12 rounded-full transition-colors ${settings.auto_moderation_mode ? 'bg-spot-lime' : 'bg-muted'}`}
-                    >
-                      <div className={`absolute top-1 h-4 w-4 rounded-full bg-white transition-all ${settings.auto_moderation_mode ? 'left-7 bg-black' : 'left-1'}`} />
-                    </button>
-                  </div>
-
-                  <div className="flex items-center justify-between rounded-xl border border-border bg-muted/30 p-4">
-                    <div className="space-y-1">
-                      <h4 className="font-bebas text-lg text-foreground">Motor de IA</h4>
-                      <p className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">Selecciona el ojo que vigilará el campus.</p>
-                    </div>
-                    <select
-                      value={settings.ai_model_provider}
-                      onChange={async (e) => {
-                        const newValue = e.target.value;
-                        const { error } = await (supabase as any).from('site_settings').upsert({ key: 'ai_model_provider', value: newValue });
-                        if (!error) {
-                          setSettings({ ...settings, ai_model_provider: newValue });
-                          toast({ title: `IA cambiada a ${newValue.toUpperCase()}` });
-                        }
-                      }}
-                      className="rounded-lg border border-border bg-black px-3 py-1 font-mono text-[10px] text-spot-lime focus:outline-none focus:border-spot-lime"
-                    >
-                      <option value="openai">OpenAI (GPT-4o)</option>
-                      <option value="gpt-4o-mini">OpenAI (GPT-4o mini)</option>
-                      <option value="google">Google (Gemini Pro)</option>
-                      <option value="gemini-1.5-flash">Google (Gemini 1.5 Flash)</option>
-                      <option value="gemini-1.5-flash-lite">Google (Gemini 1.5 Flash-Lite)</option>
-                    </select>
-                  </div>
-
-                  <div className="flex justify-end pt-1">
-                    <button
-                      onClick={async () => {
-                        toast({ title: "Iniciando prueba de conexión...", duration: 2000 });
-                        try {
-                          const { data, error } = await supabase.functions.invoke('test-ai', { body: { provider: settings.ai_model_provider } });
-                          if (error) throw error;
-                          if (data?.success) {
-                            toast({ title: "✅ Conexión Exitosa", description: data.message });
-                          } else {
-                            throw new Error(data?.error || "Error desconocido");
-                          }
-                        } catch (err: any) {
-                          toast({ title: "❌ Fallo de Conexión", description: err.message || "Revisa las API Keys en Supabase", variant: "destructive" });
-                        }
-                      }}
-                      className="rounded-lg bg-spot-cyan/10 px-4 py-2 font-mono text-[10px] text-spot-cyan border border-spot-cyan/20 hover:bg-spot-cyan/20 hover:text-white transition-all uppercase tracking-widest flex items-center gap-2"
-                    >
-                      Probar Conexión a {settings.ai_model_provider?.split('-')[0].toUpperCase()}
-                    </button>
-                  </div>
-
-                  <div className="h-px bg-border" />
-
                   {/* ─ Drop duration config ─ */}
                   <div className="space-y-4">
                     <div className="flex items-center gap-2">
@@ -803,88 +642,6 @@ const AdminPage = () => {
                     </button>
                   </div>
 
-                  <div className="h-px bg-border" />
-
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <h4 className="font-bebas text-lg text-foreground">Reglas de Moderación</h4>
-                      <button
-                        onClick={async () => {
-                          const { error } = await (supabase as any).from('site_settings').upsert({ key: 'moderation_rules', value: settings.moderation_rules });
-                          if (!error) toast({ title: "Reglas actualizadas" });
-                        }}
-                        className="rounded-md bg-spot-lime/10 px-2 py-1 font-bebas text-[10px] text-spot-lime border border-spot-lime/20 hover:bg-spot-lime/20"
-                      >
-                        GUARDAR REGLAS
-                      </button>
-                    </div>
-                    <textarea
-                      value={settings.moderation_rules}
-                      onChange={(e) => setSettings({ ...settings, moderation_rules: e.target.value })}
-                      className="w-full rounded-xl border border-border bg-muted/50 p-4 font-mono text-[11px] h-32 text-zinc-300 focus:border-spot-lime/50 focus:outline-none focus:bg-black/20"
-                      placeholder="Ej: Bloquear acoso, lenguaje vulgar, o menciones a la competencia..."
-                    />
-                  </div>
-                </div>
-
-                {/* Moderation queue */}
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-bebas text-xl text-foreground">Cola de Moderación ({flaggedDrops.length})</h3>
-                    {flaggedDrops.length > 0 && (
-                      <span className="animate-pulse rounded-full bg-spot-red px-2 py-0.5 font-mono text-[8px] uppercase text-white">Pendiente</span>
-                    )}
-                  </div>
-
-                  {flaggedDrops.length === 0 ? (
-                    <div className="rounded-xl border border-border bg-card/50 p-8 text-center">
-                      <Shield size={24} className="mx-auto mb-2 text-muted-foreground opacity-20" />
-                      <p className="font-mono text-[10px] text-muted-foreground uppercase tracking-widest">Sin drops para revisión</p>
-                    </div>
-                  ) : (
-                    <div className="grid gap-3">
-                      {flaggedDrops.map((drop) => (
-                        <div key={drop.id} className="group relative flex flex-col gap-3 rounded-2xl border border-spot-red/20 bg-card p-4 transition-all hover:border-spot-red/40 hover:bg-spot-red/5">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <AlertTriangle size={14} className="text-spot-red" />
-                              <span className="font-bebas text-sm text-foreground">@{drop.profiles?.username || "anónimo"}</span>
-                              <span className="font-mono text-[9px] text-muted-foreground opacity-60">
-                                {new Date(drop.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <button
-                                onClick={async () => {
-                                  const { error } = await supabase.functions.invoke('moderate-drop', { body: { drop_id: drop.id, action: 'ADMIN_APPROVE' } });
-                                  if (!error) {
-                                    setFlaggedDrops(prev => prev.filter(d => d.id !== drop.id));
-                                    toast({ title: "Drop aprobado ✅" });
-                                  }
-                                }}
-                                className="rounded-lg bg-spot-lime px-3 py-1 font-bebas text-[11px] text-black shadow-lg shadow-spot-lime/20 transition-all hover:scale-105"
-                              >
-                                APROBAR
-                              </button>
-                              <button
-                                onClick={async () => {
-                                  const { error } = await supabase.functions.invoke('moderate-drop', { body: { drop_id: drop.id, action: 'ADMIN_REJECT' } });
-                                  if (!error) {
-                                    setFlaggedDrops(prev => prev.filter(d => d.id !== drop.id));
-                                    toast({ title: "Drop eliminado" });
-                                  }
-                                }}
-                                className="rounded-lg bg-muted px-3 py-1 font-bebas text-[11px] text-muted-foreground hover:bg-spot-red hover:text-white transition-all"
-                              >
-                                RECHAZAR
-                              </button>
-                            </div>
-                          </div>
-                          <audio controls src={drop.audio_url} className="h-8 w-full brightness-90 saturate-50 hover:brightness-100 transition-all" />
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 </div>
 
                 <div className="rounded-xl border border-spot-cyan/20 bg-spot-cyan/5 p-4">

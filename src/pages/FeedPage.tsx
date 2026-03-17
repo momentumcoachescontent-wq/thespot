@@ -32,8 +32,7 @@ const FeedPage = () => {
       let query = (supabase as any)
         .from("drops")
         .select("id, audio_url, created_at, expires_at, duration_seconds, listened_count, profiles:author_id(username), reactions(count)")
-        .gt("expires_at", new Date().toISOString())
-        .eq("is_flagged", false);
+        .gt("expires_at", new Date().toISOString());
 
       if (resolvedDomain) {
         // Obtenemos los spots que pertenecen a este dominio
@@ -173,23 +172,13 @@ const FeedPage = () => {
       const dropMinutes = Number(durationSetting?.value) || (isPremiumUser ? 15 : 5);
       const expiresAt = new Date(Date.now() + dropMinutes * 60000).toISOString();
 
-      // Check if AI moderation is enabled
-      const { data: moderationSetting } = await (supabase as any)
-        .from('site_settings')
-        .select('value')
-        .eq('key', 'ai_moderation_enabled')
-        .single();
-
-      const isModerationEnabled = moderationSetting?.value === true;
-
-      const { data: newDrop, error: dbError } = await (supabase as any).from("drops").insert({
+      const { error: dbError } = await (supabase as any).from("drops").insert({
         spot_id: spotId,
         author_id: user.id,
         audio_url: publicUrl,
         duration_seconds: duration || 1,
         expires_at: expiresAt,
-        is_flagged: isModerationEnabled // If enabled, we flag it initially for processing
-      }).select("id").single();
+      });
       if (dbError) throw dbError;
 
       // 💥 GUARDAR EN HISTORIAL (PERSISTENCIA FASE 9)
@@ -199,26 +188,7 @@ const FeedPage = () => {
       });
       if (historyError) console.error("Error guardando en historial persistente:", historyError);
 
-
-      if (isModerationEnabled && newDrop) {
-        toast({
-          title: "Análisis de IA en curso",
-          description: "Estamos asegurando que tu mensaje sea un espacio seguro. Se activará en breve.",
-          variant: "default"
-        });
-
-        // Invocación Real de la Edge Function
-        try {
-          const { error: invokeError } = await supabase.functions.invoke('moderate-drop', {
-            body: { drop_id: newDrop.id }
-          });
-          if (invokeError) console.error("Error al invocar moderación:", invokeError);
-        } catch (e) {
-          console.error("Fallo crítico invocando IA:", e);
-        }
-      } else {
-        toast({ title: "Drop activo 🎙️", description: `Tu voz es ahora parte del presente. Desaparecerá en ${dropMinutes} minutos.` });
-      }
+      toast({ title: "Drop activo 🎙️", description: `Tu voz es ahora parte del presente. Desaparecerá en ${dropMinutes} minutos.` });
 
       // Fire-and-forget: notify campus users about new drop
       supabase.functions.invoke("send-push", {
