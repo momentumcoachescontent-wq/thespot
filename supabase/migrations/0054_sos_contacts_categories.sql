@@ -13,3 +13,6 @@ SET is_spot_contact = true, is_emergency_contact = true
 WHERE is_emergency_contact = false AND relationship IS NOT NULL;
 
 ALTER TABLE public.sos_contacts DROP COLUMN IF EXISTS relationship;
+
+-- Refrescar caché de PostgREST para que reconozca las nuevas columnas
+NOTIFY pgrst, 'reload schema';
