@@ -7,7 +7,7 @@ import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "https://esm.sh/stripe@14.21.0?target=deno";
 
-const appOrigin = Deno.env.get("APP_URL") ?? "*";
+const appOrigin = Deno.env.get("APP_URL") ?? "https://thespot.lovable.app";
 const corsHeaders = {
   "Access-Control-Allow-Origin": appOrigin,
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -55,7 +55,8 @@ serve(async (req) => {
       throw new Error("Token expired — please sign in again");
     }
 
-    const { plan = "monthly", success_url, cancel_url } = await req.json();
+    // HIGH-4: only read `plan` from client — never accept redirect URLs from untrusted input
+    const { plan = "monthly" } = await req.json();
 
     // Admin client — used for profile read/write and site_settings fallback
     const adminSupabase = createClient(
@@ -127,8 +128,8 @@ serve(async (req) => {
       mode: "subscription",
       payment_method_types: ["card"],
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: success_url || `${appUrl}/premium?success=true&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: cancel_url || `${appUrl}/premium?canceled=true`,
+      success_url: `${appUrl}/premium?success=true&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${appUrl}/premium?canceled=true`,
       subscription_data: {
         metadata: { supabase_user_id: userId },
       },

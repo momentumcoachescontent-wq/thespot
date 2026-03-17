@@ -1,6 +1,6 @@
 {
   "packageId": "app.thespot.campus",
-  "host": "YOUR_LOVABLE_DOMAIN",
+  "host": "thespot.lovable.app",
   "name": "THE SPOT",
   "launcherName": "The Spot",
   "display": "standalone",
@@ -12,9 +12,9 @@
   "navigationDividerColorDark": "#1a1a2e",
   "backgroundColor": "#0a0a0f",
   "startUrl": "/feed",
-  "iconUrl": "https://YOUR_LOVABLE_DOMAIN/icons/icon-512.png",
-  "maskableIconUrl": "https://YOUR_LOVABLE_DOMAIN/icons/icon-maskable-512.png",
-  "monochromeIconUrl": "https://YOUR_LOVABLE_DOMAIN/icons/icon-512.png",
+  "iconUrl": "https://thespot.lovable.app/icons/icon-512.png",
+  "maskableIconUrl": "https://thespot.lovable.app/icons/icon-maskable-512.png",
+  "monochromeIconUrl": "https://thespot.lovable.app/icons/icon-512.png",
   "splashScreenFadeOutDuration": 300,
   "signingKey": {
     "path": "./android.keystore",
@@ -27,17 +27,17 @@
       "name": "Feed",
       "shortName": "Feed",
       "url": "/feed",
-      "iconUrl": "https://YOUR_LOVABLE_DOMAIN/icons/icon-192.png"
+      "iconUrl": "https://thespot.lovable.app/icons/icon-192.png"
     },
     {
       "name": "Mensajes",
       "shortName": "DMs",
       "url": "/messages",
-      "iconUrl": "https://YOUR_LOVABLE_DOMAIN/icons/icon-192.png"
+      "iconUrl": "https://thespot.lovable.app/icons/icon-192.png"
     }
   ],
   "generatorApp": "bubblewrap-cli",
-  "webManifestUrl": "https://YOUR_LOVABLE_DOMAIN/manifest.json",
+  "webManifestUrl": "https://thespot.lovable.app/manifest.json",
   "fallbackType": "customtabs",
   "features": {
     "locationDelegation": {
@@ -53,7 +53,7 @@
   "enableNotifications": true,
   "isChromeOSOnly": false,
   "isMetaQuest": false,
-  "fullScopeUrl": "https://YOUR_LOVABLE_DOMAIN/",
+  "fullScopeUrl": "https://thespot.lovable.app/",
   "minSdkVersion": 21,
   "targetSdkVersion": 34,
   "retainedBundles": []

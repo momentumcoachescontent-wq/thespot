@@ -9,7 +9,7 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const appOrigin = Deno.env.get("APP_URL") ?? "*";
+const appOrigin = Deno.env.get("APP_URL") ?? "https://thespot.lovable.app";
 const corsHeaders = {
   "Access-Control-Allow-Origin": appOrigin,
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -250,6 +250,16 @@ serve(async (req) => {
     let userIds: string[] = [];
 
     if (user_id) {
+      // HIGH-3: only allow sending to self; admins can target any user
+      if (user_id !== callerId) {
+        const { data: callerProfile } = await adminSupabase
+          .from("profiles").select("role").eq("id", callerId).single();
+        if (callerProfile?.role !== "admin") {
+          return new Response(JSON.stringify({ error: "Forbidden: cannot send push to another user" }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 403,
+          });
+        }
+      }
       userIds = [user_id];
     } else if (university_domain) {
       // Campus-wide push: require admin role

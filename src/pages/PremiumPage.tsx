@@ -103,8 +103,9 @@ const PremiumPage = () => {
       const { data, error } = await supabase.functions.invoke("customer-portal");
       if (error) throw error;
       if (data?.url) window.open(data.url, "_blank");
-    } catch {
-      window.open("https://billing.stripe.com/p/login/bJe5kDbgQ7O17RnfuM5Ne00", "_blank");
+      else throw new Error("No se recibió URL del portal.");
+    } catch (err: any) {
+      toast({ title: "Error al abrir portal", description: err.message || "Intenta de nuevo o contacta soporte.", variant: "destructive" });
     }
   };
 
