@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Shield } from "lucide-react";
 
-const LAST_UPDATED = "12 de marzo de 2026";
+const LAST_UPDATED = "17 de marzo de 2026";
 const CONTACT_EMAIL = "privacidad@thespot.app";
 const APP_NAME = "The Spot";
 
@@ -121,9 +121,7 @@ const PrivacyPolicyPage = () => {
             </p>
             <ul className="list-disc pl-5 space-y-1 mt-2">
               <li>Se almacenan cifrados en Supabase Storage (AES-256)</li>
-              <li>Son efímeros: se eliminan automáticamente al expirar su TTL (15 minutos para usuarios gratuitos)</li>
-              <li>Pueden ser transcritos por IA (OpenAI Whisper) con fines de moderación de contenido</li>
-              <li>Las transcripciones no se almacenan de forma permanente tras la moderación</li>
+              <li>Son efímeros: se eliminan automáticamente al expirar su TTL (5 minutos para usuarios gratuitos)</li>
             </ul>
           </Sub>
           <Sub title="2.4 Ubicación geográfica (GPS)">
@@ -138,7 +136,7 @@ const PrivacyPolicyPage = () => {
               <li>
                 <strong className="text-white">Al activar Spot Alert (SOS):</strong> tu ubicación GPS se
                 comparte únicamente con tus contactos de confianza pre-configurados y se registra en el incidente.
-                Sólo se procesa al confirmar la alerta (transcurridos 30 segundos sin cancelar con PIN).
+                Se procesa al confirmar la alerta en el modal de confirmación.
               </li>
             </ul>
             <p className="mt-2 text-white/50 text-xs">
@@ -148,7 +146,7 @@ const PrivacyPolicyPage = () => {
           </Sub>
           <Sub title="2.5 Contactos de confianza (SOS)">
             <p>
-              Puedes registrar hasta 3 contactos de confianza (nombre, número de teléfono, relación) para el
+              Puedes registrar hasta 5 contactos de confianza (nombre, número de teléfono, categoría: Spot o emergencia) para el
               sistema de alertas SOS. Estos datos:
             </p>
             <ul className="list-disc pl-5 space-y-1 mt-2">
@@ -194,8 +192,7 @@ const PrivacyPolicyPage = () => {
                 {[
                   ["Correo electrónico", "Autenticación y verificación de pertenencia a institución educativa", "Ejecución del contrato"],
                   ["Número de teléfono", "Recibir alertas SOS vía WhatsApp; identificación en perfil", "Consentimiento explícito"],
-                  ["Grabaciones de audio", "Publicación efímera en feed del Spot; moderación de contenido", "Ejecución del contrato"],
-                  ["Transcripción de audio (IA)", "Detección de contenido inapropiado o situaciones de crisis", "Interés legítimo (seguridad)"],
+                  ["Grabaciones de audio", "Publicación efímera en feed del Spot", "Ejecución del contrato"],
                   ["Ubicación GPS", "Asociar Drops al campus; enviar ubicación en emergencias SOS", "Consentimiento explícito"],
                   ["Contactos de confianza", "Notificaciones WhatsApp en caso de alerta SOS confirmada", "Consentimiento explícito"],
                   ["Check-in emocional", "Generación de índices de bienestar estudiantil anonimizados", "Consentimiento (opt-in)"],
@@ -223,12 +220,6 @@ const PrivacyPolicyPage = () => {
                 policy: "https://supabase.com/privacy",
               },
               {
-                name: "OpenAI Inc.",
-                role: "Transcripción de audio (Whisper) y moderación de contenido (GPT-4o). El audio se envía para transcripción y no se usa para entrenar modelos según su política API.",
-                country: "EUA",
-                policy: "https://openai.com/privacy",
-              },
-              {
                 name: "Meta Platforms Inc. (WhatsApp Cloud API)",
                 role: "Envío de mensajes WhatsApp de emergencia a contactos de confianza cuando se activa Spot Alert SOS",
                 country: "EUA / Irlanda (UE)",
@@ -236,7 +227,7 @@ const PrivacyPolicyPage = () => {
               },
               {
                 name: "n8n GmbH (instancia self-hosted)",
-                role: "Automatización de flujos: envío de alertas SOS y limpieza de contenido expirado. Self-hosted en infraestructura propia.",
+                role: "Automatización de flujos internos (limpieza de contenido expirado). Self-hosted en infraestructura propia. No procesa datos personales de usuarios finales.",
                 country: "México (servidor propio)",
                 policy: null,
               },
@@ -279,7 +270,6 @@ const PrivacyPolicyPage = () => {
                   ["Perfil de usuario", "Hasta que elimines tu cuenta"],
                   ["Contactos de confianza SOS", "Hasta que los elimines manualmente o elimines la cuenta"],
                   ["Incidentes SOS (metadatos)", "30 días desde la creación del incidente"],
-                  ["Registros de moderación", "30 días"],
                   ["Historial de Drops (para rankings)", "Permanente (solo metadatos: autor, duración, fecha — sin audio)"],
                   ["Check-ins emocionales agregados", "90 días (datos anonimizados)"],
                 ].map(([tipo, periodo]) => (
@@ -304,8 +294,7 @@ const PrivacyPolicyPage = () => {
             <li>Almacenamiento de audio cifrado con <strong className="text-white">AES-256</strong> en Supabase Storage</li>
             <li>Comunicaciones protegidas con <strong className="text-white">TLS/HTTPS</strong> en tránsito</li>
             <li>Políticas de <strong className="text-white">Row Level Security (RLS)</strong> en base de datos: cada usuario solo accede a sus propios datos y a los Drops de los Spots a los que pertenece</li>
-            <li>Ubicación GPS solo se transmite en eventos SOS confirmados</li>
-            <li>PIN de cancelación SOS almacenado exclusivamente en tu dispositivo (localStorage), no en nuestros servidores</li>
+            <li>Ubicación GPS solo se transmite en eventos SOS confirmados mediante modal de confirmación</li>
             <li>Acceso administrativo restringido con roles diferenciados</li>
           </ul>
           <p className="mt-3 text-white/50 text-xs">
@@ -462,11 +451,10 @@ const PrivacyPolicyPage = () => {
           <p>No utilizamos cookies de seguimiento ni publicidad. Usamos almacenamiento local del navegador únicamente para:</p>
           <ul className="list-disc pl-5 space-y-1 mt-2">
             <li>
-              <strong className="text-white">PIN de cancelación SOS</strong> (clave: <code className="text-spot-lime text-xs bg-white/5 px-1 rounded">thespot_sos_pin</code>):
-              valor numérico de 4 dígitos guardado solo en tu dispositivo. Nunca se transmite a nuestros servidores.
+              <strong className="text-white">Sesión de autenticación</strong>: token JWT de Supabase para mantener tu sesión activa. Se elimina al cerrar sesión.
             </li>
             <li>
-              <strong className="text-white">Sesión de autenticación</strong>: token JWT de Supabase para mantener tu sesión activa. Se elimina al cerrar sesión.
+              <strong className="text-white">Preferencias de la app</strong>: configuración local de UI. No contiene datos personales.
             </li>
           </ul>
         </Section>

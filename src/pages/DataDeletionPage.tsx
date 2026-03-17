@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Trash2, Mail, User, AlertTriangle, CheckCircle2 } from "lucide-react";
 
-const LAST_UPDATED = "12 de marzo de 2026";
+const LAST_UPDATED = "17 de marzo de 2026";
 const DELETION_EMAIL = "privacidad@thespot.app";
 const APP_NAME = "The Spot";
 

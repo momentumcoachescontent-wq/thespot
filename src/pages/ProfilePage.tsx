@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Shield, LogOut, Plus, Trash2, Phone, User, X, Pencil, School, AtSign, Bell } from "lucide-react";
+import { Shield, LogOut, Plus, Trash2, Phone, User, X, Pencil, School, AtSign, Bell, FileText, AlertTriangle } from "lucide-react";
 import PushNotificationToggle from "@/components/PushNotificationToggle";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -31,6 +31,8 @@ const ProfilePage = () => {
   const [isLoadingContacts, setIsLoadingContacts] = useState(true);
   const [editingContactId, setEditingContactId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({ name: "", phone: "", is_spot_contact: true, is_emergency_contact: false });
+  const [showDeleteAccount, setShowDeleteAccount] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
   // Profile Edit State
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -156,6 +158,22 @@ const ProfilePage = () => {
       toast({ title: "Contacto eliminado" });
     } catch (error: any) {
       toast({ title: "Error", description: "No se pudo eliminar el contacto.", variant: "destructive" });
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    setIsDeletingAccount(true);
+    try {
+      const { error } = await (supabase as any).rpc("delete_my_account");
+      if (error) throw error;
+      await authSignOut();
+      navigate("/");
+      toast({ title: "Cuenta eliminada", description: "Todos tus datos han sido eliminados permanentemente." });
+    } catch (err: any) {
+      toast({ title: "Error al eliminar cuenta", description: err.message || "Inténtalo de nuevo o contáctanos.", variant: "destructive" });
+    } finally {
+      setIsDeletingAccount(false);
+      setShowDeleteAccount(false);
     }
   };
 
@@ -491,6 +509,58 @@ const ProfilePage = () => {
             <LogOut size={22} className="group-hover:translate-x-1 transition-transform" />
             CERRAR SESIÓN
           </button>
+        </div>
+
+        {/* Legal links */}
+        <div className="mt-6 flex items-center justify-center gap-4 flex-wrap">
+          {[
+            { label: "Privacidad", href: "/privacy" },
+            { label: "Términos", href: "/terms" },
+            { label: "Eliminar datos", href: "/data-deletion" },
+          ].map(({ label, href }) => (
+            <a key={href} href={href} className="flex items-center gap-1 font-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:text-spot-lime transition-colors">
+              <FileText size={10} />
+              {label}
+            </a>
+          ))}
+        </div>
+
+        {/* Delete Account */}
+        <div className="mt-4 text-center">
+          {!showDeleteAccount ? (
+            <button
+              onClick={() => setShowDeleteAccount(true)}
+              className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground/40 hover:text-spot-red transition-colors"
+            >
+              Eliminar mi cuenta y datos
+            </button>
+          ) : (
+            <div className="rounded-2xl border border-spot-red/30 bg-spot-red/5 p-5 space-y-3 text-left">
+              <div className="flex items-center gap-2">
+                <AlertTriangle size={16} className="text-spot-red shrink-0" />
+                <p className="font-bebas text-lg text-spot-red tracking-wide">ELIMINAR CUENTA</p>
+              </div>
+              <p className="font-mono text-[11px] text-white/60 leading-relaxed">
+                Esta acción es <strong className="text-white">permanente e irreversible</strong>.
+                Se eliminarán tu perfil, drops, contactos SOS, mensajes y todos tus datos.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleDeleteAccount}
+                  disabled={isDeletingAccount}
+                  className="flex-1 rounded-xl bg-spot-red py-3 font-bebas text-sm text-white tracking-widest shadow-lg disabled:opacity-50 hover:brightness-110 transition-all"
+                >
+                  {isDeletingAccount ? "ELIMINANDO..." : "SÍ, ELIMINAR TODO"}
+                </button>
+                <button
+                  onClick={() => setShowDeleteAccount(false)}
+                  className="rounded-xl bg-white/5 border border-white/10 px-4 font-mono text-xs text-muted-foreground hover:text-white transition-colors"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, FileText } from "lucide-react";
 
-const LAST_UPDATED = "12 de marzo de 2026";
+const LAST_UPDATED = "17 de marzo de 2026";
 const CONTACT_EMAIL = "legal@thespot.app";
 const APP_NAME = "The Spot";
 const APP_URL = "https://thespot.lovable.app";
@@ -165,10 +165,9 @@ const TermsOfServicePage = () => {
             o expira su TTL.
           </p>
           <p>
-            <strong className="text-white">Moderación:</strong> Nuestro sistema de IA (OpenAI Whisper +
-            GPT-4o) transcribe y evalúa el contenido de audio automáticamente antes de publicarlo. Nos
-            reservamos el derecho de rechazar, silenciar o eliminar contenido que viole estas reglas, sin
-            previo aviso y sin responsabilidad.
+            <strong className="text-white">Moderación:</strong> Nos reservamos el derecho de silenciar o
+            eliminar contenido que viole estas reglas, sin previo aviso y sin responsabilidad.
+            Los usuarios pueden reportar contenido inapropiado desde la app.
           </p>
           <p>
             <strong className="text-white">Reportes:</strong> Los usuarios pueden reportar contenido
@@ -188,8 +187,8 @@ const TermsOfServicePage = () => {
               situaciones de emergencia real donde sientas que tu seguridad o la de otros está en riesgo.
             </li>
             <li>
-              <strong className="text-white">Falsas alarmas:</strong> El PIN de cancelación de 30 segundos
-              existe para prevenir activaciones accidentales. El uso deliberado para enviar falsas alarmas
+              <strong className="text-white">Falsas alarmas:</strong> El modal de confirmación existe
+              para prevenir activaciones accidentales. El uso deliberado para enviar falsas alarmas
               constituye una violación grave de estos Términos.
             </li>
             <li>
@@ -216,8 +215,8 @@ const TermsOfServicePage = () => {
         <Section id="premium" title="7. Suscripción Spot+">
           <p>
             <strong className="text-white">Spot+</strong> es el nivel de suscripción premium que otorga
-            acceso a funciones adicionales como Drops extendidos (hasta 5 min / 24h de TTL),
-            Spotcasts, resumen IA de Drops expirados y estadísticas avanzadas.
+            acceso a funciones adicionales como Drops extendidos (hasta 15 min / TTL prolongado),
+            Spotcasts, DMs ilimitados y badge VIP en el perfil.
           </p>
           <ul className="list-disc pl-5 space-y-1 mt-2">
             <li>Los precios se muestran en la app al momento de suscribirse</li>
