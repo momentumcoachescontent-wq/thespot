@@ -5,6 +5,7 @@ import BottomNav from "./BottomNav";
 import SosButton from "./SosButton";
 import SosModal from "./SosModal";
 import SpotCheckInButton from "./SpotCheckInButton";
+import PodcastMiniPlayer from "./PodcastMiniPlayer";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -96,6 +97,9 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       <main className="flex-1 md:ml-16 lg:ml-64 min-h-screen">
         {children}
       </main>
+
+      {/* Mini-player — persiste en todas las páginas */}
+      <PodcastMiniPlayer />
 
       {/* Bottom nav — only on mobile */}
       <div className="md:hidden">
