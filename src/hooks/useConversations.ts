@@ -25,16 +25,10 @@ export function useConversations() {
     }
 
     try {
-      const { data, error } = await (supabase as any)
+      // ── 1. Fetch conversations (no embedded join — avoids FK constraint names) ──
+      const { data: convData, error } = await (supabase as any)
         .from("conversations")
-        .select(`
-          id,
-          participant_a,
-          participant_b,
-          last_message_at,
-          profile_a:profiles!conversations_participant_a_fkey(id, username, avatar_emoji),
-          profile_b:profiles!conversations_participant_b_fkey(id, username, avatar_emoji)
-        `)
+        .select("id, participant_a, participant_b, last_message_at")
         .or(`participant_a.eq.${user.id},participant_b.eq.${user.id}`)
         .order("last_message_at", { ascending: false });
 
@@ -44,12 +38,35 @@ export function useConversations() {
         return;
       }
 
-      const enriched: Conversation[] = await Promise.all(
-        (data || []).map(async (c: any) => {
-          const isA = c.participant_a === user.id;
-          const other = isA ? c.profile_b : c.profile_a;
+      const rows = convData || [];
 
-          // Last message + unread count en paralelo
+      // ── 2. Batch-fetch all other-user profiles in one query ──
+      const otherIds: string[] = [
+        ...new Set<string>(
+          rows.map((c: any) =>
+            c.participant_a === user.id ? c.participant_b : c.participant_a
+          )
+        ),
+      ];
+
+      let profileMap: Record<string, { id: string; username: string; avatar_emoji: string }> = {};
+      if (otherIds.length > 0) {
+        const { data: profiles } = await (supabase as any)
+          .from("profiles")
+          .select("id, username, avatar_emoji")
+          .in("id", otherIds);
+        (profiles || []).forEach((p: any) => {
+          profileMap[p.id] = p;
+        });
+      }
+
+      // ── 3. Last message + unread count per conversation (parallel) ──
+      const enriched: Conversation[] = await Promise.all(
+        rows.map(async (c: any) => {
+          const otherId =
+            c.participant_a === user.id ? c.participant_b : c.participant_a;
+          const other = profileMap[otherId];
+
           const [msgRes, countRes] = await Promise.all([
             (supabase as any)
               .from("messages")
@@ -69,7 +86,7 @@ export function useConversations() {
 
           return {
             id: c.id,
-            other_user_id: other?.id ?? "",
+            other_user_id: otherId,
             other_username: other?.username ?? "Usuario",
             other_avatar: other?.avatar_emoji ?? "🎤",
             last_message_text: last?.content ?? null,
