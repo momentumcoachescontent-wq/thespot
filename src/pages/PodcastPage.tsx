@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Headphones, Play, Pause, Plus, Lock, Clock, Mic, Square, Send, Sparkles } from "lucide-react";
+import { Headphones, Play, Pause, Plus, Clock, Mic, Square, Send, Sparkles, LockKeyhole } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 
@@ -13,14 +13,26 @@ interface Podcast {
   description: string;
   audio_url: string;
   duration_seconds: number;
-  expires_at: string;
-  is_premium: boolean;
+  expires_at: string | null;
+  access_tier: "free" | "premium";
   play_count: number;
   profiles?: { username: string };
 }
 
-const PodcastCard = ({ pod, isPlaying, onToggle }: { pod: Podcast; isPlaying: boolean; onToggle: () => void }) => {
-  const daysLeft = Math.ceil((new Date(pod.expires_at).getTime() - Date.now()) / 86400000);
+const PodcastCard = ({
+  pod,
+  isPlaying,
+  onToggle,
+  canPlay,
+}: {
+  pod: Podcast;
+  isPlaying: boolean;
+  onToggle: () => void;
+  canPlay: boolean;
+}) => {
+  const daysLeft = pod.expires_at
+    ? Math.ceil((new Date(pod.expires_at).getTime() - Date.now()) / 86400000)
+    : null;
   const mins = Math.floor(pod.duration_seconds / 60);
   const secs = pod.duration_seconds % 60;
 
@@ -33,16 +45,23 @@ const PodcastCard = ({ pod, isPlaying, onToggle }: { pod: Podcast; isPlaying: bo
       <div className="flex items-start gap-3">
         <button
           onClick={onToggle}
-          className="mt-0.5 flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-spot-lime text-black shadow-[0_0_15px_rgba(200,255,0,0.3)] transition-transform hover:scale-105 active:scale-95"
+          disabled={!canPlay}
+          className="mt-0.5 flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-spot-lime text-black shadow-[0_0_15px_rgba(200,255,0,0.3)] transition-transform hover:scale-105 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          {isPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" className="ml-0.5" />}
+          {!canPlay ? (
+            <LockKeyhole size={16} />
+          ) : isPlaying ? (
+            <Pause size={20} fill="currentColor" />
+          ) : (
+            <Play size={20} fill="currentColor" className="ml-0.5" />
+          )}
         </button>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <h3 className="font-bebas text-lg leading-none text-foreground truncate">{pod.title}</h3>
-            {pod.is_premium && (
+            {pod.access_tier === "premium" && (
               <span className="shrink-0 rounded-full bg-amber-500/20 px-2 py-0.5 font-mono text-[9px] uppercase tracking-widest text-amber-400">
-                Premium
+                Spot+
               </span>
             )}
           </div>
@@ -54,9 +73,11 @@ const PodcastCard = ({ pod, isPlaying, onToggle }: { pod: Podcast; isPlaying: bo
             <span className="flex items-center gap-1 font-mono text-[9px] text-muted-foreground">
               <Headphones size={10} /> {pod.play_count || 0}
             </span>
-            <span className={`font-mono text-[9px] ${daysLeft <= 1 ? "text-spot-red" : "text-muted-foreground"}`}>
-              {daysLeft > 0 ? `${daysLeft}d restantes` : "Expirado"}
-            </span>
+            {daysLeft !== null && (
+              <span className={`font-mono text-[9px] ${daysLeft <= 1 ? "text-spot-red" : "text-muted-foreground"}`}>
+                {daysLeft > 0 ? `${daysLeft}d restantes` : "Expirado"}
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -72,10 +93,16 @@ const PodcastPage = () => {
   const [loading, setLoading] = useState(true);
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
-  const [form, setForm] = useState({ title: "", description: "", days: 3 });
+  const [form, setForm] = useState({
+    title: "",
+    description: "",
+    accessTier: "free" as "free" | "premium",
+    useExpiry: false,
+    days: 3,
+  });
   const audioRef = useRef<HTMLAudioElement>(null);
 
-  // Recording State
+  // Recording state
   const [isRecording, setIsRecording] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
@@ -88,7 +115,10 @@ const PodcastPage = () => {
   const animationFrameRef = useRef<number | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
 
-  // Consider isPremium if the profile says so OR if the user is an admin
+  // Play tracking: seconds listened per podcast
+  const listenedSecsRef = useRef<Record<string, number>>({});
+  const playIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
   const isPremium = profile?.is_premium || isAdmin;
 
   useEffect(() => {
@@ -96,6 +126,7 @@ const PodcastPage = () => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
       if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+      if (playIntervalRef.current) clearInterval(playIntervalRef.current);
     };
   }, []);
 
@@ -104,10 +135,10 @@ const PodcastPage = () => {
       const { data } = await (supabase as any)
         .from("podcasts")
         .select("*, profiles:creator_id(username)")
-        .gt("expires_at", new Date().toISOString())
+        .eq("status", "published")
         .order("created_at", { ascending: false });
       setPodcasts(data || []);
-    } catch (e) {
+    } catch {
       setPodcasts([]);
     } finally {
       setLoading(false);
@@ -129,7 +160,7 @@ const PodcastPage = () => {
       analyser.getByteFrequencyData(dataArray);
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       const barWidth = (canvas.width / bufferLength) * 2.5;
-      let barHeight;
+      let barHeight: number;
       let x = 0;
       for (let i = 0; i < bufferLength; i++) {
         barHeight = dataArray[i] / 2.5;
@@ -151,8 +182,9 @@ const PodcastPage = () => {
       source.connect(analyserRef.current);
       drawWaveform();
 
-      const options = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-        ? { mimeType: 'audio/webm;codecs=opus' } : undefined;
+      const options = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+        ? { mimeType: "audio/webm;codecs=opus" }
+        : undefined;
 
       const mediaRecorder = new MediaRecorder(stream, options);
       mediaRecorderRef.current = mediaRecorder;
@@ -166,7 +198,7 @@ const PodcastPage = () => {
         const type = options ? options.mimeType : "audio/webm";
         const blob = new Blob(chunksRef.current, { type });
         setAudioBlob(blob);
-        stream.getTracks().forEach(t => t.stop());
+        stream.getTracks().forEach((t) => t.stop());
         audioCtx.close();
       };
 
@@ -174,8 +206,8 @@ const PodcastPage = () => {
       setIsRecording(true);
       setElapsed(0);
       setAudioBlob(null);
-      timerRef.current = setInterval(() => setElapsed(prev => prev + 1), 1000);
-    } catch (e) {
+      timerRef.current = setInterval(() => setElapsed((prev) => prev + 1), 1000);
+    } catch {
       toast({ title: "Acceso denegado", description: "Necesitamos permiso para el micrófono.", variant: "destructive" });
     }
   };
@@ -199,8 +231,20 @@ const PodcastPage = () => {
     try {
       if (!user) return;
 
+      // Resolver spot_id desde el university_domain del perfil
+      let spotId: string | null = null;
+      const domain = profile?.university_domain;
+      if (domain && domain !== "admin") {
+        const { data: spots } = await (supabase as any)
+          .from("spots")
+          .select("id")
+          .eq("university_domain", domain)
+          .limit(1);
+        spotId = spots?.[0]?.id ?? null;
+      }
+
       const fileName = `${user.id}-${Date.now()}.webm`;
-      const { data: uploadData, error: uploadError } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from("podcasts")
         .upload(fileName, audioBlob);
 
@@ -208,8 +252,13 @@ const PodcastPage = () => {
 
       const { data: { publicUrl } } = supabase.storage.from("podcasts").getPublicUrl(fileName);
 
-      const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + form.days);
+      const expiresAt = form.useExpiry
+        ? (() => {
+            const d = new Date();
+            d.setDate(d.getDate() + form.days);
+            return d.toISOString();
+          })()
+        : null;
 
       const { error: dbError } = await (supabase as any).from("podcasts").insert({
         title: form.title,
@@ -217,8 +266,11 @@ const PodcastPage = () => {
         audio_url: publicUrl,
         duration_seconds: elapsed,
         creator_id: user.id,
-        is_premium: true,
-        expires_at: expiresAt.toISOString(),
+        spot_id: spotId,
+        access_tier: form.accessTier,
+        is_premium: form.accessTier === "premium",
+        status: "published",
+        expires_at: expiresAt,
       });
 
       if (dbError) throw dbError;
@@ -227,7 +279,7 @@ const PodcastPage = () => {
       setShowCreate(false);
       setAudioBlob(null);
       setElapsed(0);
-      setForm({ title: "", description: "", days: 3 });
+      setForm({ title: "", description: "", accessTier: "free", useExpiry: false, days: 3 });
       loadPodcasts();
     } catch (e: any) {
       toast({ title: "Error al publicar", description: e.message, variant: "destructive" });
@@ -236,15 +288,45 @@ const PodcastPage = () => {
     }
   };
 
+  const startPlayTracking = (podcastId: string) => {
+    if (playIntervalRef.current) clearInterval(playIntervalRef.current);
+    if (!listenedSecsRef.current[podcastId]) {
+      listenedSecsRef.current[podcastId] = 0;
+    }
+    playIntervalRef.current = setInterval(() => {
+      listenedSecsRef.current[podcastId] = (listenedSecsRef.current[podcastId] ?? 0) + 1;
+      // Incrementar play_count al llegar a 15 segundos (una sola vez)
+      if (listenedSecsRef.current[podcastId] === 15) {
+        (supabase as any).rpc("increment_podcast_play_count", {
+          p_podcast_id: podcastId,
+          p_listened_secs: 15,
+        });
+      }
+    }, 1000);
+  };
+
+  const stopPlayTracking = () => {
+    if (playIntervalRef.current) clearInterval(playIntervalRef.current);
+    playIntervalRef.current = null;
+  };
+
   const togglePlay = (pod: Podcast) => {
+    const canPlay = pod.access_tier === "free" || isPremium;
+    if (!canPlay) {
+      navigate("/premium");
+      return;
+    }
+
     if (playingId === pod.id) {
       audioRef.current?.pause();
+      stopPlayTracking();
       setPlayingId(null);
     } else {
       if (audioRef.current) {
         audioRef.current.src = pod.audio_url;
-        audioRef.current.play().catch(() => { });
+        audioRef.current.play().catch(() => {});
       }
+      startPlayTracking(pod.id);
       setPlayingId(pod.id);
     }
   };
@@ -290,7 +372,7 @@ const PodcastPage = () => {
               <div className="flex-1 min-w-0">
                 <p className="font-bebas text-base text-amber-400">Crea tu propio podcast</p>
                 <p className="font-mono text-[10px] text-muted-foreground mt-0.5">
-                  Con Spot+ puedes grabar podcasts de hasta 5 días en tu campus. Puedes escuchar los de otros gratis.
+                  Con Spot+ puedes grabar y publicar podcasts en tu campus. Los podcasts Spot+ solo los escuchan suscriptores.
                 </p>
                 <button
                   onClick={() => navigate("/premium")}
@@ -313,14 +395,18 @@ const PodcastPage = () => {
             >
               <div className="flex items-center justify-between">
                 <h3 className="font-bebas text-lg text-spot-lime">Nuevo Podcast</h3>
-                {isRecording && <span className="flex items-center gap-1.5 animate-pulse text-spot-red font-mono text-[10px] uppercase font-bold"><div className="h-1.5 w-1.5 rounded-full bg-red-500" /> Al aire</span>}
+                {isRecording && (
+                  <span className="flex items-center gap-1.5 animate-pulse text-spot-red font-mono text-[10px] uppercase font-bold">
+                    <div className="h-1.5 w-1.5 rounded-full bg-red-500" /> Al aire
+                  </span>
+                )}
               </div>
 
               <input
                 placeholder="Título del podcast"
                 className="w-full rounded-xl border border-border bg-black/40 px-3 py-2 font-mono text-xs focus:outline-none focus:ring-1 focus:ring-spot-lime"
                 value={form.title}
-                onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+                onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
                 disabled={isRecording || isPublishing}
               />
               <textarea
@@ -328,53 +414,94 @@ const PodcastPage = () => {
                 rows={2}
                 className="w-full rounded-xl border border-border bg-black/40 px-3 py-2 font-mono text-xs resize-none focus:outline-none focus:ring-1 focus:ring-spot-lime"
                 value={form.description}
-                onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
                 disabled={isRecording || isPublishing}
               />
 
-              {/* Recording Area */}
-              <div className="relative flex flex-col items-center justify-center h-32 bg-black/60 rounded-xl border border-border overflow-hidden">
-                <div className={`absolute top-2 font-mono text-xl tabular-nums ${isRecording ? "text-spot-lime" : "text-muted-foreground"}`}>
-                  {formatTime(elapsed)}
-                </div>
-                <canvas ref={canvasRef} width={280} height={60} className="mt-4" />
-                {audioBlob && !isRecording && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-                    <span className="font-mono text-[10px] text-spot-lime uppercase tracking-widest font-bold">✓ Grabación lista</span>
-                  </div>
-                )}
+              {/* Acceso */}
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-[9px] text-muted-foreground uppercase tracking-widest">Acceso:</span>
+                {(["free", "premium"] as const).map((tier) => (
+                  <button
+                    key={tier}
+                    onClick={() => setForm((f) => ({ ...f, accessTier: tier }))}
+                    className={`h-7 px-3 rounded-full font-mono text-[9px] transition-all ${
+                      form.accessTier === tier
+                        ? tier === "premium"
+                          ? "bg-amber-500 text-black"
+                          : "bg-spot-lime text-black"
+                        : "border border-border text-muted-foreground"
+                    }`}
+                    disabled={isRecording || isPublishing}
+                  >
+                    {tier === "free" ? "Libre" : "Spot+"}
+                  </button>
+                ))}
               </div>
 
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <span className="font-mono text-[9px] text-muted-foreground uppercase tracking-widest">Expiración:</span>
-                  {[1, 3, 5].map(d => (
+              {/* Expiración opcional */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setForm((f) => ({ ...f, useExpiry: !f.useExpiry }))}
+                  className={`h-7 px-3 rounded-full font-mono text-[9px] transition-all border ${
+                    form.useExpiry ? "border-spot-lime text-spot-lime" : "border-border text-muted-foreground"
+                  }`}
+                  disabled={isRecording || isPublishing}
+                >
+                  {form.useExpiry ? "✓ Expira en:" : "Sin expiración"}
+                </button>
+                {form.useExpiry &&
+                  [1, 3, 5].map((d) => (
                     <button
                       key={d}
-                      onClick={() => setForm(f => ({ ...f, days: d }))}
-                      className={`h-7 px-3 rounded-full font-mono text-[9px] transition-all ${form.days === d ? "bg-spot-lime text-black" : "border border-border text-muted-foreground"}`}
+                      onClick={() => setForm((f) => ({ ...f, days: d }))}
+                      className={`h-7 px-3 rounded-full font-mono text-[9px] transition-all ${
+                        form.days === d ? "bg-spot-lime text-black" : "border border-border text-muted-foreground"
+                      }`}
                       disabled={isRecording || isPublishing}
                     >
                       {d}d
                     </button>
                   ))}
-                </div>
+              </div>
 
+              {/* Recording area */}
+              <div className="relative flex flex-col items-center justify-center h-32 bg-black/60 rounded-xl border border-border overflow-hidden">
+                <div
+                  className={`absolute top-2 font-mono text-xl tabular-nums ${
+                    isRecording ? "text-spot-lime" : "text-muted-foreground"
+                  }`}
+                >
+                  {formatTime(elapsed)}
+                </div>
+                <canvas ref={canvasRef} width={280} height={60} className="mt-4" />
+                {audioBlob && !isRecording && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+                    <span className="font-mono text-[10px] text-spot-lime uppercase tracking-widest font-bold">
+                      ✓ Grabación lista
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between gap-3">
                 {audioBlob && !isRecording ? (
                   <button
                     onClick={() => { setAudioBlob(null); setElapsed(0); }}
                     className="font-mono text-[9px] text-muted-foreground underline uppercase tracking-tighter"
                   >
-                    Borrar
+                    Borrar grabación
                   </button>
-                ) : null}
+                ) : <div />}
               </div>
 
               <div className="flex gap-2">
                 {!audioBlob ? (
                   <button
                     onClick={isRecording ? stopRecording : startRecording}
-                    className={`flex-1 flex items-center justify-center gap-2 rounded-xl py-2 font-bebas text-lg transition-all ${isRecording ? "bg-spot-red text-white animate-pulse" : "bg-zinc-800 text-white"}`}
+                    className={`flex-1 flex items-center justify-center gap-2 rounded-xl py-2 font-bebas text-lg transition-all ${
+                      isRecording ? "bg-spot-red text-white animate-pulse" : "bg-zinc-800 text-white"
+                    }`}
                     disabled={isPublishing}
                   >
                     {isRecording ? <Square size={16} /> : <Mic size={16} />}
@@ -386,11 +513,15 @@ const PodcastPage = () => {
                     disabled={isPublishing}
                     className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-spot-lime py-2 font-bebas text-lg text-black disabled:opacity-50"
                   >
-                    {isPublishing ? "PUBLICANDO..." : <><Send size={16} /> PUBLICAR PODCAST</>}
+                    {isPublishing ? "PUBLICANDO..." : <><Send size={16} /> PUBLICAR</>}
                   </button>
                 )}
 
-                <button onClick={() => { if (!isRecording) setShowCreate(false); }} className="rounded-xl border border-border px-4 py-2 font-mono text-xs text-muted-foreground" disabled={isRecording || isPublishing}>
+                <button
+                  onClick={() => { if (!isRecording) setShowCreate(false); }}
+                  className="rounded-xl border border-border px-4 py-2 font-mono text-xs text-muted-foreground"
+                  disabled={isRecording || isPublishing}
+                >
                   Cancelar
                 </button>
               </div>
@@ -420,14 +551,20 @@ const PodcastPage = () => {
           </div>
         ) : (
           <div className="space-y-3">
-            {podcasts.map(pod => (
-              <PodcastCard key={pod.id} pod={pod} isPlaying={playingId === pod.id} onToggle={() => togglePlay(pod)} />
+            {podcasts.map((pod) => (
+              <PodcastCard
+                key={pod.id}
+                pod={pod}
+                isPlaying={playingId === pod.id}
+                onToggle={() => togglePlay(pod)}
+                canPlay={pod.access_tier === "free" || isPremium}
+              />
             ))}
           </div>
         )}
       </div>
 
-      <audio ref={audioRef} onEnded={() => setPlayingId(null)} />
+      <audio ref={audioRef} onEnded={() => { stopPlayTracking(); setPlayingId(null); }} />
     </div>
   );
 };
