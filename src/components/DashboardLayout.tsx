@@ -22,7 +22,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Debes estar autenticado");
 
-      // 1. Obtener GPS
+      // 1. GPS (best-effort, 8s timeout)
       let userLat = 0, userLng = 0;
       try {
         const position = await new Promise<GeolocationPosition>((resolve, reject) => {
@@ -32,55 +32,36 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         userLng = position.coords.longitude;
       } catch { /* no GPS — continuar sin coordenadas */ }
 
-      // 2. Obtener perfil + contactos de confianza en paralelo
-      const [profileResult, contactsResult] = await Promise.all([
-        (supabase as any).from("profiles").select("username, phone").eq("id", user.id).single(),
-        (supabase as any).from("sos_contacts").select("name, phone, relationship").eq("user_id", user.id),
+      const mapsUrl = userLat && userLng
+        ? `https://maps.google.com/?q=${userLat},${userLng}`
+        : null;
+
+      // 2. Perfil + registro del incidente en paralelo (fire-and-forget en DB)
+      const [profileResult] = await Promise.all([
+        (supabase as any).from("profiles").select("username").eq("id", user.id).single(),
+        (supabase as any).from("sos_incidents").insert({
+          user_id: user.id,
+          location_lat: userLat,
+          location_lng: userLng,
+          status: "active",
+        }),
       ]);
 
-      const profile = profileResult.data;
-      const contacts: { name: string; phone: string; relationship: string }[] = contactsResult.data || [];
+      const username = profileResult.data?.username || "usuario";
 
-      // 3. Registrar incidente en Supabase
-      const { data: incident, error: incError } = await (supabase as any)
-        .from("sos_incidents")
-        .insert({ user_id: user.id, location_lat: userLat, location_lng: userLng, status: "active" })
-        .select()
-        .single();
+      // 3. Abrir WhatsApp con mensaje de emergencia (igual que "Voy al Spot")
+      const lines = [
+        `🆘 ALERTA SOS — @${username}`,
+        `Necesito ayuda ahora mismo.`,
+        mapsUrl ? `📍 Mi ubicación: ${mapsUrl}` : `📍 Ubicación GPS no disponible`,
+        `⚠️ Por favor responde si puedes asistir.`,
+      ];
 
-      if (incError) throw incError;
+      window.open(`https://wa.me/?text=${encodeURIComponent(lines.join("\n"))}`, "_blank");
 
-      // 4. Disparar webhook n8n con payload completo (contactos incluidos)
-      const n8nUrl = import.meta.env.VITE_N8N_SOS_WEBHOOK
-        || "https://n8n-n8n.z3tydl.easypanel.host/webhook/thespot-sos-alert";
-      if (n8nUrl) {
-        const mapsUrl = userLat && userLng
-          ? `https://maps.google.com/?q=${userLat},${userLng}`
-          : null;
-
-        fetch(n8nUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            incident_id: incident.id,
-            user_id: user.id,
-            user_email: user.email,
-            user_name: profile?.username || user.email,
-            user_phone: profile?.phone || null,
-            location: { lat: userLat, lng: userLng },
-            maps_url: mapsUrl,
-            contacts,
-            timestamp: new Date().toISOString(),
-          }),
-        }).catch(() => {});
-      }
-
-      const contactCount = contacts.length;
       toast({
-        title: "🚨 ALERTA SOS ACTIVADA",
-        description: contactCount > 0
-          ? `Notificando a ${contactCount} contacto${contactCount > 1 ? "s" : ""} de confianza. No estás solo.`
-          : "Alerta registrada. Agrega contactos de confianza en tu perfil para notificaciones WhatsApp.",
+        title: "🚨 WhatsApp abierto",
+        description: "Selecciona a quién enviarle la alerta desde WhatsApp.",
         variant: "destructive",
       });
     } catch (error: any) {
@@ -104,12 +85,11 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       {/* Bottom nav — only on mobile */}
       <div className="md:hidden">
         <BottomNav />
-        {/* Floating buttons (mobile only) */}
         <SpotCheckInButton />
         <SosButton onClick={() => setIsSosOpen(true)} />
       </div>
 
-      {/* SOS Modal — shared across all pages */}
+      {/* SOS Modal */}
       <SosModal
         isOpen={isSosOpen}
         onClose={() => setIsSosOpen(false)}
