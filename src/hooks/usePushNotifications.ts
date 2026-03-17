@@ -36,7 +36,11 @@ export function usePushNotifications() {
   }, [isSupported, user]);
 
   const subscribe = async () => {
-    if (!isSupported || !user || !VAPID_PUBLIC_KEY) return;
+    if (!isSupported || !user) return;
+    if (!VAPID_PUBLIC_KEY) {
+      console.error("Push notifications: VITE_VAPID_PUBLIC_KEY not configured");
+      throw new Error("Las notificaciones push no están configuradas en este entorno.");
+    }
     setLoading(true);
     try {
       const reg = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
@@ -48,7 +52,7 @@ export function usePushNotifications() {
 
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) as Uint8Array<ArrayBuffer>,
       });
 
       const json = sub.toJSON();
@@ -92,5 +96,5 @@ export function usePushNotifications() {
     }
   };
 
-  return { isSupported, permission, isSubscribed, loading, subscribe, unsubscribe };
+  return { isSupported, isConfigured: !!VAPID_PUBLIC_KEY, permission, isSubscribed, loading, subscribe, unsubscribe };
 }

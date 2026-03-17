@@ -29,6 +29,8 @@ const ProfilePage = () => {
     is_emergency_contact: false,
   });
   const [isLoadingContacts, setIsLoadingContacts] = useState(true);
+  const [editingContactId, setEditingContactId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({ name: "", phone: "", is_spot_contact: true, is_emergency_contact: false });
 
   // Profile Edit State
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -118,6 +120,28 @@ const ProfilePage = () => {
       toast({ title: "Contacto guardado", description: `${newContact.name} ha sido añadido.` });
       setNewContact({ name: "", phone: "", is_spot_contact: true, is_emergency_contact: false });
       setIsAddingMode(false);
+      fetchContacts();
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  };
+
+  const startEditContact = (contact: SOSContact) => {
+    setEditingContactId(contact.id);
+    setEditForm({ name: contact.name, phone: contact.phone, is_spot_contact: contact.is_spot_contact, is_emergency_contact: contact.is_emergency_contact });
+  };
+
+  const handleUpdateContact = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingContactId || !editForm.name || !editForm.phone) return;
+    try {
+      const { error } = await (supabase as any)
+        .from("sos_contacts")
+        .update({ name: editForm.name, phone: editForm.phone, is_spot_contact: editForm.is_spot_contact, is_emergency_contact: editForm.is_emergency_contact })
+        .eq("id", editingContactId);
+      if (error) throw error;
+      toast({ title: "Contacto actualizado" });
+      setEditingContactId(null);
       fetchContacts();
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -350,35 +374,97 @@ const ProfilePage = () => {
               </div>
             )}
             {contacts.map((contact) => (
-              <motion.div
-                layout
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                key={contact.id}
-                className="flex items-center justify-between rounded-2xl border border-white/10 bg-zinc-900/50 p-4 shadow-sm group hover:border-white/20 transition-all"
-              >
-                <div className="space-y-1">
-                  <h4 className="font-bebas text-xl leading-none text-white tracking-wide">{contact.name}</h4>
-                  <p className="font-mono text-[9px] text-zinc-400">{contact.phone}</p>
-                  <div className="flex gap-1.5 mt-1">
-                    {contact.is_spot_contact && (
-                      <span className="rounded-full bg-spot-lime/10 border border-spot-lime/20 px-2 py-0.5 font-mono text-[8px] text-spot-lime uppercase tracking-widest">
-                        🎙️ Spot
-                      </span>
-                    )}
-                    {contact.is_emergency_contact && (
-                      <span className="rounded-full bg-spot-red/10 border border-spot-red/20 px-2 py-0.5 font-mono text-[8px] text-spot-red uppercase tracking-widest">
-                        🆘 SOS
-                      </span>
-                    )}
+              <motion.div layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} key={contact.id}>
+                {editingContactId === contact.id ? (
+                  <form
+                    onSubmit={handleUpdateContact}
+                    className="space-y-4 rounded-2xl border border-spot-lime/20 bg-spot-lime/5 p-5 shadow-xl"
+                  >
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="relative">
+                        <User className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={12} />
+                        <input
+                          placeholder="Nombre"
+                          className="w-full rounded-xl bg-black/40 py-3 pl-9 pr-3 font-mono text-[10px] focus:outline-none focus:ring-1 focus:ring-spot-lime"
+                          value={editForm.name}
+                          onChange={e => setEditForm({ ...editForm, name: e.target.value })}
+                          required
+                        />
+                      </div>
+                      <div className="relative">
+                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={12} />
+                        <input
+                          placeholder="Teléfono"
+                          className="w-full rounded-xl bg-black/40 py-3 pl-9 pr-3 font-mono text-[10px] focus:outline-none focus:ring-1 focus:ring-spot-lime"
+                          value={editForm.phone}
+                          onChange={e => setEditForm({ ...editForm, phone: e.target.value })}
+                          required
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2 rounded-xl bg-black/20 p-3">
+                      <label className="flex items-center gap-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={editForm.is_spot_contact}
+                          onChange={e => setEditForm({ ...editForm, is_spot_contact: e.target.checked })}
+                          className="h-4 w-4 rounded accent-spot-lime"
+                        />
+                        <span className="font-mono text-[11px] text-spot-lime">🎙️ Contacto de Spot</span>
+                      </label>
+                      <label className="flex items-center gap-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={editForm.is_emergency_contact}
+                          onChange={e => setEditForm({ ...editForm, is_emergency_contact: e.target.checked })}
+                          className="h-4 w-4 rounded accent-spot-red"
+                        />
+                        <span className="font-mono text-[11px] text-spot-red">🆘 Contacto de emergencia</span>
+                      </label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button type="submit" className="flex-1 rounded-xl bg-spot-lime px-6 py-3 text-xs font-bebas tracking-widest text-black shadow-lg">
+                        GUARDAR
+                      </button>
+                      <button type="button" onClick={() => setEditingContactId(null)} className="rounded-xl bg-white/5 border border-white/10 p-3">
+                        <X size={14} />
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-zinc-900/50 p-4 shadow-sm group hover:border-white/20 transition-all">
+                    <div className="space-y-1">
+                      <h4 className="font-bebas text-xl leading-none text-white tracking-wide">{contact.name}</h4>
+                      <p className="font-mono text-[9px] text-zinc-400">{contact.phone}</p>
+                      <div className="flex gap-1.5 mt-1">
+                        {contact.is_spot_contact && (
+                          <span className="rounded-full bg-spot-lime/10 border border-spot-lime/20 px-2 py-0.5 font-mono text-[8px] text-spot-lime uppercase tracking-widest">
+                            🎙️ Spot
+                          </span>
+                        )}
+                        {contact.is_emergency_contact && (
+                          <span className="rounded-full bg-spot-red/10 border border-spot-red/20 px-2 py-0.5 font-mono text-[8px] text-spot-red uppercase tracking-widest">
+                            🆘 SOS
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => startEditContact(contact)}
+                        className="rounded-xl p-2.5 text-zinc-600 hover:text-spot-lime hover:bg-spot-lime/10 transition-all"
+                      >
+                        <Pencil size={16} />
+                      </button>
+                      <button
+                        onClick={() => deleteContact(contact.id)}
+                        className="rounded-xl p-2.5 text-zinc-600 hover:text-spot-red hover:bg-spot-red/10 transition-all"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
                   </div>
-                </div>
-                <button
-                  onClick={() => deleteContact(contact.id)}
-                  className="rounded-xl p-2.5 text-zinc-600 hover:text-spot-red hover:bg-spot-red/10 transition-all"
-                >
-                  <Trash2 size={18} />
-                </button>
+                )}
               </motion.div>
             ))}
           </div>
