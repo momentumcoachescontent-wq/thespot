@@ -23,6 +23,7 @@ import ProtectedLayout from "./components/ProtectedLayout";
 import PremiumPage from "./pages/PremiumPage";
 import MessagesPage from "./pages/MessagesPage";
 import ChatPage from "./pages/ChatPage";
+import MobilePermissionsOnboarding from "./components/MobilePermissionsOnboarding";
 
 const queryClient = new QueryClient();
 
@@ -34,6 +35,7 @@ const App = () => (
           <PodcastPlayerProvider>
             <Toaster />
             <Sonner />
+            <MobilePermissionsOnboarding />
             <BrowserRouter>
               <Routes>
                 {/* Rutas públicas — no requieren autenticación */}

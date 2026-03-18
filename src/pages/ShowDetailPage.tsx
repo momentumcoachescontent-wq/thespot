@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Play, Pause, Headphones, Clock, LockKeyhole, Mic, Square, Send, Plus, Sparkles } from "lucide-react";
+import { ArrowLeft, Play, Pause, Headphones, Clock, LockKeyhole, Mic, Square, Send, Plus, Sparkles, Users, UserPlus, Check, X, Trash2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -17,6 +17,14 @@ interface Show {
   university_domain: string | null;
   is_official: boolean;
   profiles?: { username: string | null };
+}
+
+interface Collaborator {
+  id: string;
+  user_id: string;
+  status: "pending" | "accepted" | "declined";
+  can_upload: boolean;
+  profiles: { username: string | null; full_name: string | null };
 }
 
 interface Episode {
@@ -131,12 +139,22 @@ const ShowDetailPage = () => {
   const animFrameRef = useRef<number | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
 
+  // Collaborators
+  const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
+  const [showCollabPanel, setShowCollabPanel] = useState(false);
+  const [collabSearch, setCollabSearch] = useState("");
+  const [collabSearchResults, setCollabSearchResults] = useState<{ id: string; username: string | null; full_name: string | null }[]>([]);
+  const [inviting, setInviting] = useState(false);
+
   // Play tracking
   const listenedRef = useRef<Record<string, number>>({});
   const trackIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const isPremium = profile?.is_premium || isAdmin;
   const isCreator = show?.creator_id === profile?.id || isAdmin;
+  const isAcceptedCollaborator = collaborators.some(
+    (c) => c.user_id === profile?.id && c.status === "accepted" && c.can_upload
+  );
 
   useEffect(() => {
     if (showId) loadShow();
@@ -150,7 +168,7 @@ const ShowDetailPage = () => {
   const loadShow = async () => {
     setLoading(true);
     try {
-      const [showRes, epRes] = await Promise.all([
+      const [showRes, epRes, collabRes] = await Promise.all([
         (supabase as any)
           .from("podcast_shows")
           .select("*, profiles:creator_id(username)")
@@ -162,15 +180,64 @@ const ShowDetailPage = () => {
           .eq("show_id", showId)
           .eq("status", "published")
           .order("episode_number", { ascending: true }),
+        (supabase as any)
+          .from("podcast_collaborators")
+          .select("id, user_id, status, can_upload, profiles:user_id(username, full_name)")
+          .eq("show_id", showId),
       ]);
       if (showRes.error) throw showRes.error;
       setShow(showRes.data);
       setEpisodes(epRes.data || []);
+      setCollaborators(collabRes.data || []);
     } catch {
       toast({ title: "Error", description: "No se pudo cargar el podcast.", variant: "destructive" });
     } finally {
       setLoading(false);
     }
+  };
+
+  const searchUsers = async (query: string) => {
+    if (query.trim().length < 2) { setCollabSearchResults([]); return; }
+    const { data } = await (supabase as any)
+      .from("profiles")
+      .select("id, username, full_name")
+      .ilike("username", `%${query.trim()}%`)
+      .neq("id", profile?.id)
+      .limit(5);
+    setCollabSearchResults(data || []);
+  };
+
+  const inviteCollaborator = async (userId: string) => {
+    if (!showId) return;
+    setInviting(true);
+    const { error } = await (supabase as any)
+      .from("podcast_collaborators")
+      .insert({ show_id: showId, user_id: userId, invited_by: profile?.id });
+    setInviting(false);
+    if (error) {
+      toast({ title: "Error", description: error.message.includes("unique") ? "Ya fue invitado" : error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: "Invitación enviada" });
+    setCollabSearch("");
+    setCollabSearchResults([]);
+    loadShow();
+  };
+
+  const removeCollaborator = async (collabId: string) => {
+    await (supabase as any).from("podcast_collaborators").delete().eq("id", collabId);
+    setCollaborators((prev) => prev.filter((c) => c.id !== collabId));
+  };
+
+  const respondToInvite = async (collabId: string, accept: boolean) => {
+    await (supabase as any)
+      .from("podcast_collaborators")
+      .update({ status: accept ? "accepted" : "declined" })
+      .eq("id", collabId);
+    setCollaborators((prev) =>
+      prev.map((c) => c.id === collabId ? { ...c, status: accept ? "accepted" : "declined" } : c)
+    );
+    toast({ title: accept ? "Invitación aceptada" : "Invitación rechazada" });
   };
 
   // ── Recording helpers ──────────────────────────────────
@@ -355,6 +422,15 @@ const ShowDetailPage = () => {
           </div>
           {isCreator && (
             <button
+              onClick={() => setShowCollabPanel((p) => !p)}
+              className="flex items-center justify-center rounded-full border border-border bg-black/40 p-2 text-muted-foreground hover:text-foreground transition-colors"
+              title="Colaboradores"
+            >
+              <Users size={14} />
+            </button>
+          )}
+          {(isCreator || isAcceptedCollaborator) && (
+            <button
               onClick={() => isPremium ? setShowCreate(true) : navigate("/premium")}
               className="flex items-center gap-1.5 rounded-full bg-spot-lime px-3 py-1.5 font-mono text-[10px] uppercase tracking-widest text-black shadow-[0_0_10px_rgba(200,255,0,0.25)]"
             >
@@ -386,6 +462,125 @@ const ShowDetailPage = () => {
             </div>
           </div>
         </div>
+
+        {/* Pending invite banner (for current user) */}
+        {collaborators.some((c) => c.user_id === profile?.id && c.status === "pending") && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="rounded-2xl border border-spot-cyan/30 bg-spot-cyan/5 p-4 flex items-center gap-3"
+          >
+            <UserPlus size={18} className="text-spot-cyan shrink-0" />
+            <p className="flex-1 font-mono text-xs text-muted-foreground">
+              Te invitaron a colaborar en este podcast
+            </p>
+            <button
+              onClick={() => {
+                const c = collaborators.find((c) => c.user_id === profile?.id && c.status === "pending");
+                if (c) respondToInvite(c.id, true);
+              }}
+              className="flex items-center gap-1 rounded-full bg-spot-cyan px-3 py-1.5 font-mono text-[10px] text-black font-bold"
+            >
+              <Check size={10} /> Aceptar
+            </button>
+            <button
+              onClick={() => {
+                const c = collaborators.find((c) => c.user_id === profile?.id && c.status === "pending");
+                if (c) respondToInvite(c.id, false);
+              }}
+              className="flex items-center gap-1 rounded-full border border-border px-3 py-1.5 font-mono text-[10px] text-muted-foreground"
+            >
+              <X size={10} /> Rechazar
+            </button>
+          </motion.div>
+        )}
+
+        {/* Collaborators panel (creator only) */}
+        <AnimatePresence>
+          {showCollabPanel && isCreator && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="overflow-hidden rounded-2xl border border-border bg-card p-4 space-y-3"
+            >
+              <div className="flex items-center justify-between">
+                <h3 className="font-bebas text-base text-foreground flex items-center gap-2">
+                  <Users size={14} className="text-spot-cyan" /> Colaboradores
+                </h3>
+                <button onClick={() => setShowCollabPanel(false)} className="text-muted-foreground hover:text-foreground">
+                  <X size={14} />
+                </button>
+              </div>
+
+              {/* Search */}
+              <div className="relative">
+                <input
+                  placeholder="Buscar por @username"
+                  value={collabSearch}
+                  onChange={(e) => { setCollabSearch(e.target.value); searchUsers(e.target.value); }}
+                  className="w-full rounded-xl border border-border bg-black/40 px-3 py-2 font-mono text-xs focus:outline-none focus:ring-1 focus:ring-spot-cyan"
+                />
+                {collabSearchResults.length > 0 && (
+                  <div className="absolute left-0 right-0 top-full z-10 mt-1 rounded-xl border border-border bg-zinc-900 shadow-xl overflow-hidden">
+                    {collabSearchResults.map((u) => (
+                      <button
+                        key={u.id}
+                        onClick={() => inviteCollaborator(u.id)}
+                        disabled={inviting || collaborators.some((c) => c.user_id === u.id)}
+                        className="flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-white/5 disabled:opacity-50"
+                      >
+                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-spot-cyan/20 font-bebas text-sm text-spot-cyan">
+                          {(u.username || u.full_name || "?")[0].toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="font-mono text-[11px] text-foreground">@{u.username}</p>
+                          {u.full_name && <p className="font-mono text-[9px] text-muted-foreground">{u.full_name}</p>}
+                        </div>
+                        {collaborators.some((c) => c.user_id === u.id) ? (
+                          <span className="ml-auto font-mono text-[9px] text-muted-foreground">Invitado</span>
+                        ) : (
+                          <UserPlus size={12} className="ml-auto text-spot-cyan" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* List */}
+              {collaborators.length === 0 ? (
+                <p className="font-mono text-[10px] text-muted-foreground text-center py-2">Sin colaboradores aún</p>
+              ) : (
+                <div className="space-y-2">
+                  {collaborators.map((c) => (
+                    <div key={c.id} className="flex items-center gap-3 rounded-xl bg-black/20 px-3 py-2">
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted font-bebas text-sm text-muted-foreground">
+                        {(c.profiles.username || "?")[0].toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-mono text-[11px] text-foreground truncate">@{c.profiles.username}</p>
+                      </div>
+                      <span className={`font-mono text-[9px] uppercase px-2 py-0.5 rounded-full ${
+                        c.status === "accepted" ? "bg-spot-lime/10 text-spot-lime" :
+                        c.status === "declined" ? "bg-spot-red/10 text-spot-red" :
+                        "bg-amber-400/10 text-amber-400"
+                      }`}>
+                        {c.status === "accepted" ? "activo" : c.status === "declined" ? "rechazó" : "pendiente"}
+                      </span>
+                      <button
+                        onClick={() => removeCollaborator(c.id)}
+                        className="text-muted-foreground hover:text-spot-red transition-colors"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Create episode form */}
         <AnimatePresence>
