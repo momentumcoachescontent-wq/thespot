@@ -54,8 +54,23 @@ Deploy: Lovable → `thespot.lovable.app`
 ## Móvil / TWA (Google Play)
 
 - **Dominio**: `thespot.lovable.app` — único dominio verificado para Digital Asset Links.
-- **`twa/twa-manifest.json`**: no dejar `YOUR_LOVABLE_DOMAIN` — siempre `thespot.lovable.app`.
-- Antes de build TWA: verificar que todos los placeholder estén sustituidos.
+- **Package ID**: `app.thespot.campus` — no cambiar después de primera publicación.
+- **Keystore**: `twa/android.keystore`, alias `thespot-key`. Nunca subir a git (en `.gitignore`).
+- **SHA-256 keystore**: `DD:0B:16:5B:70:1B:6A:A0:2C:BF:9E:8A:D3:FC:03:36:D0:DB:54:C7:6D:4D:D6:F5:CC:63:7D:74:20:78:BF:AF`
+- **`public/.well-known/assetlinks.json`**: ya actualizado con el SHA-256 correcto.
+- **Íconos PNG** generados y en `public/icons/` (192, 512, maskable-512). Regenerar con `@resvg/resvg-js` desde `icon.svg` si se cambia el ícono.
+- **Android SDK + JDK 17**: instalados por bubblewrap en `~/.bubblewrap/` — no reinstalar.
+- **Build commands** (desde `twa/`):
+  ```bash
+  export JAVA_HOME=~/.bubblewrap/jdk/jdk-17.0.11+9/Contents/Home
+  export PATH=$JAVA_HOME/bin:$PATH
+  export ANDROID_HOME=~/.bubblewrap/android_sdk
+  export BUBBLEWRAP_KEYSTORE_PASSWORD=thespot2026
+  export BUBBLEWRAP_KEY_PASSWORD=thespot2026
+  ./gradlew assembleRelease   # → app/build/outputs/apk/release/app-release.apk (935 KB)
+  ./gradlew bundleRelease     # → app/build/outputs/bundle/release/app-release.aab (1.0 MB)
+  ```
+- **Subir a Play Store**: usar el `.aab` (no el `.apk`) para nuevas releases.
 - `window.open` a WhatsApp (SOS, check-in) y Stripe (portal/checkout) son comportamientos explícitos y esperados — documentar en política de privacidad.
 
 ---
@@ -96,3 +111,4 @@ Deploy: Lovable → `thespot.lovable.app`
 | 0053 | pg_cron storage cleanup job (requiere editar placeholders antes de aplicar) |
 | 0054 | sos_contacts categories (is_spot_contact, is_emergency_contact) |
 | 0055 | conversations FK constraints + schema reload |
+| 0056 | `delete_my_account()` SECURITY DEFINER RPC — elimina perfil + auth.users |

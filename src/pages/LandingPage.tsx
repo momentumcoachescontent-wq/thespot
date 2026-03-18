@@ -5,13 +5,14 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { ACADEMIC_DOMAINS } from "@/utils/academicDomains";
+import { ACADEMIC_DOMAINS, EXTERNO_OPTION } from "@/utils/academicDomains";
 import AcademicErrorModal from "@/components/AcademicErrorModal";
 import OnboardingModal from "@/components/OnboardingModal";
 
 
-// Flat combined school list (no tabs)
+// Flat combined school list — Externo first, then universities + prepas
 const ALL_SCHOOLS = [
+  EXTERNO_OPTION,
   ...ACADEMIC_DOMAINS.universities,
   ...ACADEMIC_DOMAINS.prepas,
 ].filter((s, i, arr) => arr.findIndex((x) => x.domain === s.domain) === i); // deduplicate by domain
@@ -65,11 +66,13 @@ const LandingPage = () => {
     );
   }, [schoolSearch]);
 
-  // Computed full email
+  const isExterno = selectedSchool?.domain === "externo";
+
+  // Computed full email — "externo" users type the full address themselves
   const fullEmail = useMemo(() => {
-    if (selectedSchool) return `${emailPrefix.trim()}@${selectedSchool.domain}`;
+    if (selectedSchool && !isExterno) return `${emailPrefix.trim()}@${selectedSchool.domain}`;
     return emailPrefix.trim();
-  }, [emailPrefix, selectedSchool]);
+  }, [emailPrefix, selectedSchool, isExterno]);
 
   const handleSelectSchool = (school: { name: string; domain: string }) => {
     setSelectedSchool(school);
@@ -95,9 +98,9 @@ const LandingPage = () => {
 
     setIsSubmitting(true);
     try {
-      // Only try admin-login when no school is selected (institutional emails always use OTP).
-      // Admin accounts use non-.edu emails (gmail) without a school selection.
-      if (!selectedSchool) {
+      // Only try admin-login when no school is selected and not externo
+      // (institutional emails always use OTP; externo users use OTP too)
+      if (!selectedSchool && !isExterno) {
         const { data: adminData, error: adminErr } = await supabase.functions.invoke("admin-login", {
           body: { email },
         });
@@ -185,6 +188,7 @@ const LandingPage = () => {
         {showOnboarding && (
           <OnboardingModal
             initialInstitution={detectedInstitution}
+            universityDomain={selectedSchool?.domain}
             onComplete={() => navigate("/home")}
           />
         )}
@@ -317,9 +321,9 @@ const LandingPage = () => {
                 </AnimatePresence>
               </div>
 
-              {/* Email input: split if school selected, full if not */}
+              {/* Email input: split if school selected (not externo), full otherwise */}
               <form onSubmit={handleSendOtp} className="space-y-3">
-                {selectedSchool ? (
+                {selectedSchool && !isExterno ? (
                   <div className="flex items-stretch rounded-xl border border-white/10 bg-white/5 overflow-hidden focus-within:border-spot-lime transition-all">
                     <input
                       type="text"
@@ -338,7 +342,7 @@ const LandingPage = () => {
                   <div className="relative">
                     <input
                       type="email"
-                      placeholder="Email de Tu Preparatoria o Universidad"
+                      placeholder={isExterno ? "tu@correo.com" : "Email de Tu Preparatoria o Universidad"}
                       value={emailPrefix}
                       onChange={(e) => setEmailPrefix(e.target.value)}
                       required

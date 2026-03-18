@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { Filter, ChevronDown, Check, Globe, GraduationCap } from "lucide-react";
+import { Filter, ChevronDown, Check, Globe, GraduationCap, UserRound } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useFilter } from "@/contexts/FilterContext";
-import { ACADEMIC_DOMAINS } from "@/utils/academicDomains";
+import { ACADEMIC_DOMAINS, EXTERNO_OPTION } from "@/utils/academicDomains";
 
 const UniversitySelector = () => {
     const [isOpen, setIsOpen] = useState(false);
@@ -14,8 +14,9 @@ const UniversitySelector = () => {
     ].sort((a, b) => a.name.localeCompare(b.name));
 
     const getCurrentLabel = () => {
-        if (selectedDomain === 'mine') return "Mi Universidad";
+        if (selectedDomain === 'mine') return "Mi Spot";
         if (selectedDomain === 'all') return "Todas las Sedes";
+        if (selectedDomain === 'externo') return EXTERNO_OPTION.name;
         const found = allInstitutions.find(i => i.domain === selectedDomain);
         return found ? found.name : selectedDomain;
     };
@@ -48,7 +49,7 @@ const UniversitySelector = () => {
                                 >
                                     <div className="flex items-center gap-3">
                                         <GraduationCap size={16} className="text-spot-lime" />
-                                        <span className="font-medium text-white">Mi Universidad</span>
+                                        <span className="font-medium text-white">Mi Spot</span>
                                     </div>
                                     {selectedDomain === 'mine' && <Check size={14} className="text-spot-lime" />}
                                 </button>
@@ -62,6 +63,17 @@ const UniversitySelector = () => {
                                         <span className="font-medium text-white">Todas las Sedes</span>
                                     </div>
                                     {selectedDomain === 'all' && <Check size={14} className="text-spot-lime" />}
+                                </button>
+
+                                <button
+                                    onClick={() => { setSelectedDomain('externo'); setIsOpen(false); }}
+                                    className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-sm transition-colors hover:bg-white/5"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <UserRound size={16} className="text-zinc-400" />
+                                        <span className="font-medium text-white">{EXTERNO_OPTION.name}</span>
+                                    </div>
+                                    {selectedDomain === 'externo' && <Check size={14} className="text-spot-lime" />}
                                 </button>
 
                                 <div className="my-2 border-t border-white/5 px-3 py-2">

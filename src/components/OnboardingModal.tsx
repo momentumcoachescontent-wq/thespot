@@ -6,10 +6,11 @@ import { useToast } from "@/hooks/use-toast";
 
 interface OnboardingModalProps {
     initialInstitution: string;
+    universityDomain?: string;
     onComplete: () => void;
 }
 
-const OnboardingModal = ({ initialInstitution, onComplete }: OnboardingModalProps) => {
+const OnboardingModal = ({ initialInstitution, universityDomain, onComplete }: OnboardingModalProps) => {
     const { completeOnboarding } = useAuth();
     const { toast } = useToast();
     const [loading, setLoading] = useState(false);
@@ -29,7 +30,7 @@ const OnboardingModal = ({ initialInstitution, onComplete }: OnboardingModalProp
 
         setLoading(true);
         try {
-            await completeOnboarding(data);
+            await completeOnboarding({ ...data, university_domain: universityDomain });
             toast({ title: "Perfil completado", description: "¡Bienvenido a la comunidad!" });
             onComplete();
         } catch (err: any) {

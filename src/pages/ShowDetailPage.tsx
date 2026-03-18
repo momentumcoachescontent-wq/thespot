@@ -355,7 +355,7 @@ const ShowDetailPage = () => {
           </div>
           {isCreator && (
             <button
-              onClick={() => setShowCreate(true)}
+              onClick={() => isPremium ? setShowCreate(true) : navigate("/premium")}
               className="flex items-center gap-1.5 rounded-full bg-spot-lime px-3 py-1.5 font-mono text-[10px] uppercase tracking-widest text-black shadow-[0_0_10px_rgba(200,255,0,0.25)]"
             >
               <Plus size={10} /> Ep.

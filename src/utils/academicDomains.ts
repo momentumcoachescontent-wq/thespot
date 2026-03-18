@@ -1,3 +1,5 @@
+export const EXTERNO_OPTION = { name: "Externo / Acceso libre", domain: "externo" };
+
 export const ACADEMIC_DOMAINS = {
     universities: [
         { name: "UNAM", domain: "comunidad.unam.mx" },

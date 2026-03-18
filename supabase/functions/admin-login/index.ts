@@ -22,7 +22,7 @@ serve(async (req) => {
   }
 
   try {
-    const { email } = await req.json();
+    const { email, password: testerPassword } = await req.json();
     if (!email) {
       return new Response(JSON.stringify({ error: "Email required" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -40,8 +40,59 @@ serve(async (req) => {
 
     const normalizedEmail = email.toLowerCase().trim();
 
-    // Return 401 for non-admin emails (don't reveal which emails are admin)
-    if (!adminEmails.includes(normalizedEmail) || !adminPassword) {
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL") || "",
+      Deno.env.get("SUPABASE_ANON_KEY") || ""
+    );
+
+    if (!adminEmails.includes(normalizedEmail)) {
+      // Not an admin — check if it's a registered tester (password required)
+      if (!testerPassword) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 401,
+        });
+      }
+      const adminClient = createClient(
+        Deno.env.get("SUPABASE_URL") || "",
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || ""
+      );
+      const { data: tester } = await adminClient
+        .from("test_accounts")
+        .select("email")
+        .eq("email", normalizedEmail)
+        .maybeSingle();
+      if (!tester) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 401,
+        });
+      }
+      // Authenticate tester with their password
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: normalizedEmail,
+        password: testerPassword,
+      });
+      if (error || !data.session) {
+        return new Response(JSON.stringify({ error: "Authentication failed" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 401,
+        });
+      }
+      return new Response(
+        JSON.stringify({
+          session: {
+            access_token: data.session.access_token,
+            refresh_token: data.session.refresh_token,
+            expires_at: data.session.expires_at,
+          },
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+      );
+    }
+
+    // Admin login flow
+    if (!adminPassword) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 401,
@@ -49,11 +100,6 @@ serve(async (req) => {
     }
 
     // Authenticate via Supabase Auth server-side using stored secret password
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL") || "",
-      Deno.env.get("SUPABASE_ANON_KEY") || ""
-    );
-
     const { data, error } = await supabase.auth.signInWithPassword({
       email: normalizedEmail,
       password: adminPassword,

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
-import { Users, Mic, Shield, Trophy, TrendingUp, AlertTriangle, ArrowLeft, Crown, CreditCard, CheckCircle, XCircle, Zap, Clock, Pencil, X, Check as CheckIcon } from "lucide-react";
+import { Users, Mic, Shield, Trophy, TrendingUp, AlertTriangle, ArrowLeft, Crown, CreditCard, CheckCircle, XCircle, Zap, Clock, Pencil, X, Check as CheckIcon, FlaskConical, Trash2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -106,7 +106,7 @@ const AdminPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { isAdmin, loading: authLoading } = useAuth();
-  const [tab, setTab] = useState<"overview" | "drops" | "users" | "incidents" | "settings" | "stripe">("overview");
+  const [tab, setTab] = useState<"overview" | "drops" | "users" | "incidents" | "settings" | "stripe" | "testers">("overview");
   const [settings, setSettings] = useState<any>({
     drop_duration_freemium: 5,
     drop_duration_premium: 15,
@@ -129,11 +129,25 @@ const AdminPage = () => {
   const [domainEditingId, setDomainEditingId] = useState<string | null>(null);
   const [domainInput, setDomainInput] = useState("");
 
+  // Testers
+  const [testerEmailsInput, setTesterEmailsInput] = useState("");
+  const [testerPassword, setTesterPassword] = useState("SpotTester2026!");
+  const [creatingTesters, setCreatingTesters] = useState(false);
+  const [testerResults, setTesterResults] = useState<{ email: string; status: "created" | "exists" | "error"; message?: string }[]>([]);
+  const [existingTesters, setExistingTesters] = useState<{ id: string; email: string; created_at: string; notes: string | null }[]>([]);
+  const [loadingTesters, setLoadingTesters] = useState(false);
+
   useEffect(() => {
     if (isAdmin) {
       loadDashboard();
     }
   }, [isAdmin]);
+
+  useEffect(() => {
+    if (tab === "testers" && isAdmin) {
+      loadTesters();
+    }
+  }, [tab, isAdmin]);
 
   const loadDashboard = async () => {
     try {
@@ -331,6 +345,60 @@ const AdminPage = () => {
     if (data) setStripeTransactions(data);
   };
 
+  const loadTesters = async () => {
+    setLoadingTesters(true);
+    const { data } = await (supabase as any)
+      .from("test_accounts")
+      .select("id, email, created_at, notes")
+      .order("created_at", { ascending: false });
+    if (data) setExistingTesters(data);
+    setLoadingTesters(false);
+  };
+
+  const createBatchTesters = async () => {
+    const emails = testerEmailsInput
+      .split(/[\n,;]+/)
+      .map((e) => e.trim())
+      .filter(Boolean);
+    if (emails.length === 0) {
+      toast({ title: "Sin emails", description: "Ingresa al menos un email.", variant: "destructive" });
+      return;
+    }
+    if (!testerPassword || testerPassword.length < 6) {
+      toast({ title: "Contraseña muy corta", description: "Mínimo 6 caracteres.", variant: "destructive" });
+      return;
+    }
+    setCreatingTesters(true);
+    setTesterResults([]);
+    try {
+      const { data, error } = await supabase.functions.invoke("create-batch-testers", {
+        body: { emails, password: testerPassword },
+      });
+      if (error) throw new Error(error.message);
+      setTesterResults(data.results || []);
+      const { summary } = data;
+      toast({
+        title: `Testers creados: ${summary.created} nuevos`,
+        description: `${summary.existing} ya existían · ${summary.errors} errores`,
+      });
+      loadTesters();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setCreatingTesters(false);
+    }
+  };
+
+  const deleteTester = async (id: string, email: string) => {
+    const { error } = await (supabase as any).from("test_accounts").delete().eq("id", id);
+    if (!error) {
+      setExistingTesters((prev) => prev.filter((t) => t.id !== id));
+      toast({ title: "Tester eliminado", description: email });
+    } else {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  };
+
   if (authLoading) return <div className="flex min-h-screen items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-2 border-spot-lime border-t-transparent" /></div>;
 
   if (!isAdmin) return (
@@ -344,9 +412,9 @@ const AdminPage = () => {
     </div>
   );
 
-  const TABS = ["overview", "drops", "users", "incidents", "settings", "stripe"] as const;
+  const TABS = ["overview", "drops", "users", "incidents", "settings", "stripe", "testers"] as const;
   const TAB_LABELS: Record<string, string> = {
-    overview: "General", drops: "Drops", users: "Usuarios", incidents: "Incidentes", settings: "Config", stripe: "Stripe"
+    overview: "General", drops: "Drops", users: "Usuarios", incidents: "Incidentes", settings: "Config", stripe: "Stripe", testers: "Testers"
   };
 
   return (
@@ -841,6 +909,116 @@ const AdminPage = () => {
                   <p className="font-mono text-[9px] text-muted-foreground">
                     Eventos a escuchar: <span className="text-spot-cyan">customer.subscription.*</span> · <span className="text-spot-cyan">invoice.payment_succeeded</span> · <span className="text-spot-cyan">invoice.payment_failed</span> · <span className="text-spot-cyan">checkout.session.completed</span>
                   </p>
+                </div>
+              </div>
+            )}
+
+            {/* ── Testers ── */}
+            {tab === "testers" && (
+              <div className="space-y-6">
+                <div className="rounded-xl border border-amber-400/20 bg-amber-400/5 p-3">
+                  <p className="font-mono text-[9px] text-amber-400 uppercase tracking-widest">Temporal — solo para Google Play Testing Track</p>
+                  <p className="font-mono text-[9px] text-muted-foreground mt-1">Estos usuarios se crean con contraseña fija (sin OTP) y dominio "externo". Desactivar antes de producción pública.</p>
+                </div>
+
+                {/* Create batch */}
+                <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
+                  <h4 className="font-bebas text-lg text-foreground flex items-center gap-2">
+                    <FlaskConical size={16} className="text-spot-cyan" />
+                    Crear Testers en Lote
+                  </h4>
+
+                  <div className="space-y-2">
+                    <label className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">Emails (uno por línea, o separados por coma)</label>
+                    <textarea
+                      rows={5}
+                      placeholder={"tester1@gmail.com\ntester2@gmail.com\ntester3@hotmail.com"}
+                      value={testerEmailsInput}
+                      onChange={(e) => setTesterEmailsInput(e.target.value)}
+                      className="w-full rounded-lg border border-border bg-black/40 px-3 py-2 font-mono text-[11px] text-foreground placeholder:text-muted-foreground/30 focus:outline-none focus:ring-1 focus:ring-spot-cyan resize-none"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">Contraseña compartida</label>
+                    <input
+                      type="text"
+                      value={testerPassword}
+                      onChange={(e) => setTesterPassword(e.target.value)}
+                      className="w-full rounded-lg border border-border bg-black/40 px-3 py-2 font-mono text-[11px] text-foreground focus:outline-none focus:ring-1 focus:ring-spot-cyan"
+                    />
+                    <p className="font-mono text-[9px] text-muted-foreground">Comparte esta contraseña con los testers para que puedan hacer login sin OTP.</p>
+                  </div>
+
+                  <button
+                    onClick={createBatchTesters}
+                    disabled={creatingTesters}
+                    className="flex items-center gap-2 rounded-lg bg-spot-cyan/10 px-4 py-2 font-mono text-[10px] text-spot-cyan border border-spot-cyan/30 hover:bg-spot-cyan/20 transition-all uppercase tracking-widest disabled:opacity-50"
+                  >
+                    {creatingTesters ? <><Clock size={12} className="animate-spin" /> Creando...</> : <><CheckCircle size={12} /> Crear cuentas</>}
+                  </button>
+                </div>
+
+                {/* Results */}
+                {testerResults.length > 0 && (
+                  <div className="rounded-2xl border border-border bg-card p-4 space-y-2">
+                    <h4 className="font-bebas text-base text-foreground">Resultado</h4>
+                    <div className="space-y-1 max-h-60 overflow-y-auto">
+                      {testerResults.map((r, i) => (
+                        <div key={i} className="flex items-center gap-2 rounded-lg px-3 py-1.5 bg-black/20">
+                          {r.status === "created" && <CheckCircle size={12} className="text-spot-lime shrink-0" />}
+                          {r.status === "exists" && <Clock size={12} className="text-amber-400 shrink-0" />}
+                          {r.status === "error" && <XCircle size={12} className="text-spot-red shrink-0" />}
+                          <span className="font-mono text-[10px] text-foreground flex-1 truncate">{r.email}</span>
+                          <span className={`font-mono text-[9px] uppercase ${r.status === "created" ? "text-spot-lime" : r.status === "exists" ? "text-amber-400" : "text-spot-red"}`}>
+                            {r.status === "created" ? "creado" : r.status === "exists" ? "ya existe" : r.message || "error"}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Existing testers */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-bebas text-lg text-foreground">Testers Registrados</h4>
+                    <button
+                      onClick={loadTesters}
+                      className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:text-spot-cyan transition-colors"
+                    >
+                      Actualizar
+                    </button>
+                  </div>
+
+                  {loadingTesters ? (
+                    <div className="flex justify-center py-8">
+                      <div className="h-6 w-6 animate-spin rounded-full border-2 border-spot-cyan border-t-transparent" />
+                    </div>
+                  ) : existingTesters.length === 0 ? (
+                    <div className="rounded-xl border border-border bg-card/50 p-8 text-center">
+                      <FlaskConical size={24} className="mx-auto mb-2 text-muted-foreground opacity-20" />
+                      <p className="font-mono text-[10px] text-muted-foreground uppercase tracking-widest">Sin testers creados</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {existingTesters.map((t) => (
+                        <div key={t.id} className="flex items-center gap-3 rounded-xl border border-border bg-card p-3">
+                          <FlaskConical size={14} className="text-spot-cyan shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="font-mono text-[11px] text-foreground truncate">{t.email}</p>
+                            <p className="font-mono text-[9px] text-muted-foreground">{new Date(t.created_at).toLocaleDateString("es-MX")}{t.notes ? ` · ${t.notes}` : ""}</p>
+                          </div>
+                          <button
+                            onClick={() => deleteTester(t.id, t.email)}
+                            className="text-muted-foreground hover:text-spot-red transition-colors"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             )}

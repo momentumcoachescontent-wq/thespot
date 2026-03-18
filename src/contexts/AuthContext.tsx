@@ -27,7 +27,7 @@ interface AuthContextType {
     isPremium: boolean;
     loading: boolean;
     signOut: () => Promise<void>;
-    completeOnboarding: (data: { full_name: string; username: string; institution_name: string; phone: string }) => Promise<void>;
+    completeOnboarding: (data: { full_name: string; username: string; institution_name: string; phone: string; university_domain?: string }) => Promise<void>;
     updateProfile: (data: Partial<{ full_name: string; username: string; institution_name: string; phone: string; avatar_emoji: string }>) => Promise<void>;
     refreshProfile: () => Promise<void>;
 }
@@ -89,18 +89,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (user) await fetchProfile(user.id);
     };
 
-    const completeOnboarding = async (data: { full_name: string; username: string; institution_name: string; phone: string }) => {
+    const completeOnboarding = async (data: { full_name: string; username: string; institution_name: string; phone: string; university_domain?: string }) => {
         if (!user) return;
         try {
+            const updates: Record<string, any> = {
+                full_name: data.full_name,
+                username: data.username,
+                institution_name: data.institution_name,
+                phone: data.phone,
+                onboarding_completed: true,
+            };
+            if (data.university_domain) updates.university_domain = data.university_domain;
             const { error } = await (supabase as any)
                 .from("profiles")
-                .update({
-                    full_name: data.full_name,
-                    username: data.username,
-                    institution_name: data.institution_name,
-                    phone: data.phone,
-                    onboarding_completed: true,
-                })
+                .update(updates)
                 .eq("id", user.id);
 
             if (error) throw error;

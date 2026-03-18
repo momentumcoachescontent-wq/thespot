@@ -21,7 +21,7 @@ export const FilterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             const email = (profile as any)?.edu_email || '';
             const domain = email.split('@')[1];
             setResolvedDomain(domain || null);
-        } else if (selectedDomain === 'all') {
+        } else if (selectedDomain === 'all' || selectedDomain === 'externo') {
             setResolvedDomain(null);
         } else {
             setResolvedDomain(selectedDomain);
