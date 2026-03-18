@@ -21,10 +21,12 @@ Deploy: Lovable → `thespot.lovable.app`
 ## Arquitectura Supabase
 
 - **Auth**: OTP-only (magic link / 8-dígitos). Bypass list: `momentumcoaches.content@gmail.com`, `ealvareze1@gmail.com` con password `SpotAdmin2026!`.
+- **Testers** (temporal, Google Play Testing Track): autenticados via `admin-login` edge function + tabla `test_accounts`. Contraseña compartida `SpotTester2026!`. Desactivar antes de publicación pública.
+- **Externo / Acceso libre**: usuarios con correos no-institucionales se registran con `university_domain = 'externo'`. Ven todas las sedes (resolvedDomain = null). La opción aparece en LandingPage y UniversitySelector.
 - **Service role** solo en Edge Functions (nunca en cliente).
 - **`(supabase as any)`** para queries cuyo schema no está en los tipos generados — no ampliar el tipo global.
 - **RLS habilitado** en todas las tablas públicas. Políticas nuevas sin `is_flagged` (columna eliminada en 0051).
-- **Migraciones**: pegar en SQL Editor del dashboard de Supabase (CLI no está sincronizado con remote history 0036-0049+).
+- **Migraciones**: a partir de 0057 usar `cat migration.sql | npx supabase db query --linked` — el CLI ya está vinculado al proyecto `inchlsvnvdotbxqnsxmd`. No usar `supabase db push` (falla por inconsistencias en el historial 0002-0035).
 - Tras DDL que afecte joins o columnas: `NOTIFY pgrst, 'reload schema';`.
 - **Joins PostgREST**: preferir queries separadas + `.in("id", ids)` batch en lugar de embedded joins con FK constraint hints (`!fkey_name`) — más resiliente a FK faltantes.
 
@@ -91,9 +93,18 @@ Deploy: Lovable → `thespot.lovable.app`
 - Admins reciben premium automáticamente (`trg_enforce_admin_premium`).
 - `bypass_edu_validation` es independiente de `is_premium`.
 
-### Podcasts (Fase 1 completa)
+### Podcasts
 - `access_tier ('free'|'premium')`, `status ('draft'|'published'|'archived')`, `expires_at` nullable.
 - Play count server-side via RPC `increment_podcast_play_count` (solo si ≥ 15s).
+- **Freemium gate**: el botón `+ Ep.` verifica `isPremium`; si no, redirige a `/premium`.
+- **Colaboradores** (`podcast_collaborators`): el creator invita por `@username` desde el panel `Users` en el header. El colaborador acepta/rechaza desde un banner inline. Colaboradores aceptados (`status='accepted'` + `can_upload=true`) tienen acceso al botón `+ Ep.`
+
+### Permisos móvil (TWA)
+- `MobilePermissionsOnboarding` se muestra UNA vez en modo standalone (`display-mode: standalone`). Flag: `localStorage.thespot_perms_shown = '1'`.
+- Flujo: notificaciones → ubicación → cierre. Cada paso tiene "Ahora no".
+- AndroidManifest ya incluye `ACCESS_FINE_LOCATION` + `ACCESS_COARSE_LOCATION`.
+- twa-manifest tiene `locationDelegation: enabled`.
+- **APK rebuild pendiente** después de cada cambio en `AndroidManifest.xml` o `twa-manifest.json`.
 
 ---
 
@@ -112,3 +123,6 @@ Deploy: Lovable → `thespot.lovable.app`
 | 0054 | sos_contacts categories (is_spot_contact, is_emergency_contact) |
 | 0055 | conversations FK constraints + schema reload |
 | 0056 | `delete_my_account()` SECURITY DEFINER RPC — elimina perfil + auth.users |
+| 0059 | `podcast_collaborators` — invitaciones por show con RLS completa |
+| 0061 | `handle_new_user` + `validate_edu_email` actualizados para dominio `externo` |
+| 0062 | `test_accounts` — testers Google Play con login por contraseña (temporal) |
